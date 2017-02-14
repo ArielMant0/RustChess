@@ -1,15 +1,15 @@
 # RustChess  
 Chess game in Rust using Vulkan Graphics API  
   
-We have a basic structure of the chess game.  
-It is possible to move pieces and they are idicated by Letters on the Console.  
-You can play against a human enemy. And it is possible to win.  
+We have the basic functionalities of a chess game as a console application.
+--> Players can only make valid moves
+--> Opponent pieces can be captured
+--> Players can lose when their King is in check and cannot be saved in one move
   
-TODO:  
-Fix gameplay Errors (movement bugs)  
-Use Vulkan  
-Intersectiontest for Models and Fields  
-create 3D Models  
+TODOs:  
+Fix Rook Bug (movement bug)  
+Intergrate Vulkan Visualization
+Intersection Tests for Models and Fields  
+Create 3D Models  
 Animation, not actually Animations, but a function that changes the position of a piece slowly rather then instantly move the piece.  
-Dumb KI  
-advanced KI  
+AI Player (dumb and smart) 
