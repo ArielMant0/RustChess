@@ -124,9 +124,13 @@ fn main() {
 
     let depth_buffer = vulkano::image::attachment::AttachmentImage::transient(&device, images[0].dimensions(), vulkano::format::D16Unorm).unwrap();
 
-    let proj = cgmath::perspective(cgmath::Rad(std::f32::consts::FRAC_PI_2), { let d = images[0].dimensions(); d[0] as f32 / d[1] as f32 }, 0.01, 100.0);
+    let proj = cgmath::perspective(cgmath::Rad(std::f32::consts::FRAC_PI_2),
+                { let d = images[0].dimensions(); d[0] as f32 / d[1] as f32 }, 0.01, 100.0);
     //let proj = cgmath::ortho(-15.0, 15.0, 15.0, -15.0, 0.01, 100.0);
-    let view = cgmath::Matrix4::look_at(cgmath::Point3::new(0.0, 7.0, 0.0), cgmath::Point3::new(0.0, 0.0, 0.0), cgmath::Vector3::new(0.0, 0.0, 1.0));
+    let view = cgmath::Matrix4::look_at(cgmath::Point3::new(0.0, 7.0, 0.0),
+                                        cgmath::Point3::new(0.0, 0.0, 0.0),
+                                        cgmath::Vector3::new(0.0, 0.0, 1.0));
+
     let scale = cgmath::Matrix4::from_scale(1.0);
 
     let uniform_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::<vs::ty::Data>
@@ -214,10 +218,14 @@ fn main() {
     let mut fields = Vec::new();
     for mut elem in buffers {
         for index in 0..white_fields.len() {
-            elem = elem.draw_indexed(&pipeline, (&white_fields[index].vertex_buffer(&device, &queue), &white_fields[index].normal_buffer(&device, &queue)),
-                                           &white_fields[index].index_buffer(&device, &queue), &vulkano::command_buffer::DynamicState::none(), &set, &());
-            elem = elem.draw_indexed(&pipeline, (&black_fields[index].vertex_buffer(&device, &queue), &black_fields[index].normal_buffer(&device, &queue)),
-                                           &black_fields[index].index_buffer(&device, &queue), &vulkano::command_buffer::DynamicState::none(), &set, &());
+            elem = elem.draw_indexed(&pipeline, (&white_fields[index].vertex_buffer(&device, &queue),
+                                                 &white_fields[index].normal_buffer(&device, &queue)),
+                                                 &white_fields[index].index_buffer(&device, &queue),
+                                                 &vulkano::command_buffer::DynamicState::none(), &set, &());
+            elem = elem.draw_indexed(&pipeline, (&black_fields[index].vertex_buffer(&device, &queue),
+                                                 &black_fields[index].normal_buffer(&device, &queue)),
+                                                 &black_fields[index].index_buffer(&device, &queue),
+                                                 &vulkano::command_buffer::DynamicState::none(), &set, &());
         }
         fields.push(elem.draw_end().build());
     }
