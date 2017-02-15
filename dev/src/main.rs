@@ -17,6 +17,8 @@ extern crate vulkano_win;
 
 use vulkano_win::VkSurfaceBuild;
 
+use cgmath::{SquareMatrix, InnerSpace, Transform};
+
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -69,17 +71,123 @@ mod pipeline_layout {
     }
 }
 
+struct Matrices {
+    pub world: cgmath::Matrix4<f32>,
+    pub view: cgmath::Matrix4<f32>,
+    pub proj: cgmath::Matrix4<f32>
+}
+
 struct GraphicsEngine {
     device: Arc<Device>,
     queue: Arc<Queue>,
     swapchain: Arc<Swapchain>,
-    images: Vec<Arc<SwapchainImage>>,
-    command_buffers: Arc<Vec<Vec<Arc<PrimaryCommandBuffer>>>>
+    //images: Vec<Arc<SwapchainImage>>,
+    command_buffers: Arc<Vec<Vec<Arc<PrimaryCommandBuffer>>>>,
+    field_positions: Arc<Vec<Vec<cgmath::Point3<f32>>>>,
+    uniform: Matrices,
+    screenwidth: u32,
+    screenheight: u32
 }
 
 impl GraphicsEngine {
+
     fn add_command_buffer(&mut self, cmd_buf: Vec<Arc<PrimaryCommandBuffer>>) {
         Arc::get_mut(&mut self.command_buffers).unwrap().push(cmd_buf);
+    }
+
+    fn add_field_centers(&mut self, centers: Vec<cgmath::Point3<f32>>) {
+        Arc::get_mut(&mut self.field_positions).unwrap().push(centers);
+    }
+
+    fn get_field(&self, mouse: (i32, i32)) -> Option<(u8, u8)> {
+        let mut x = (( 2.0 * mouse.0 as f32) / self.screenwidth as f32) - 1.0;
+        let mut y = (((2.0 * mouse.1 as f32) / self.screenheight as f32) - 1.0) * -1.0;
+
+        x = x / self.uniform.proj.x.x;
+        y = y / self.uniform.proj.y.y;
+        /*
+        for i in 0..self.field_positions.len() {
+            for j in 0..self.field_positions[i].len() {
+                if x <= self.field_positions[i][j].x + 0.5 &&
+                   x >= self.field_positions[i][j].x - 0.5 &&
+                   y <= self.field_positions[i][j].z + 0.5 &&
+                   y >= self.field_positions[i][j].z - 0.5
+                {
+                    println!("Position: {}, {} -- {}, {}", x, y,
+                        self.field_positions[i][j].x,
+                        self.field_positions[i][j].z);
+                    return Some(self.map_field_positions(i, j))
+                }
+            }
+        }*/
+        
+        if let Some(inverse) = self.uniform.view.invert() {
+            let direction = cgmath::Vector3{ x: (x * inverse.x.x) + (y * inverse.y.x) + inverse.z.x,
+                                             y: (x * inverse.x.y) + (y * inverse.y.y) + inverse.z.y,
+                                             z: (x * inverse.x.z) + (y * inverse.y.z) + inverse.z.z };
+
+            for i in 0..self.field_positions.len() {
+                for index in 0..self.field_positions[i].len() {
+                    let mut world = self.uniform.world.clone();
+                    let translation = cgmath::Matrix4::from_translation(cgmath::Vector3 {
+                                                            x: self.field_positions[i][index].x,
+                                                            y: self.field_positions[i][index].y,
+                                                            z: self.field_positions[i][index].z
+                                                          });
+                    //let translation = cgmath::Matrix4::from_translation(cgmath::Vector3::new(0.0, 0.0, 0.0));
+                    world = world * translation;
+                    
+                    let inverse_world = world.invert().unwrap();
+                    let mut ray_direction = inverse_world.transform_vector(direction.normalize());
+                    ray_direction = ray_direction.normalize();
+                    let ray_origin = inverse_world.transform_point(cgmath::Point3{ x: 0.0,
+                                                                                   y: 7.0,
+                                                                                   z: 0.0 });;
+
+                    if GraphicsEngine::ray_intersect(&ray_origin, &ray_direction, &self.field_positions[i][index]) {
+                        return Some(self.map_field_positions(i, index))
+                    }
+                }
+            }
+        } else {
+            println!("Could not invert view matrix");
+            return None
+        }
+        println!("Did not find an intersection");
+        None
+    }
+
+    fn map_field_positions(&self, i: usize, j: usize) -> (u8, u8) {
+        (((self.field_positions[i][j].x + 5.0) as i32) as u8,
+         ((5.0 - self.field_positions[i][j].z) as i32) as u8)
+    }
+
+    fn ray_intersect(origin: &cgmath::Point3<f32>, direction: &cgmath::Vector3<f32>, center: &cgmath::Point3<f32>) -> bool {
+        
+        let a = (direction.x * direction.x) + (direction.y * direction.y) + (direction.z * direction.z);
+        let b = ((direction.x * origin.x) + (direction.y * origin.y) + (direction.z * origin.z)) * 2.0;
+        let c = ((origin.x * origin.x) + (origin.y * origin.y) + (origin.z * origin.z)) - (0.5 * 0.5);
+        
+        let discriminant = (b*b) -(4.0*a*c);
+
+        if (discriminant < 0.0)
+        {
+            return false;
+        }
+        true
+        /*let normal = cgmath::Vector3::new(center.x, 1.0, center.z);
+        let denom = normal.dot(*direction);
+        
+        println!("Position: {}, {}",
+                        center.x,
+                        center.z);
+
+        if denom.abs() > 0.0001 {
+            let t = (center - origin).dot(normal) / denom;
+
+            return t >= 0.0
+        }
+        false*/
     }
 }
 
@@ -124,13 +232,9 @@ fn main() {
 
     let depth_buffer = vulkano::image::attachment::AttachmentImage::transient(&device, images[0].dimensions(), vulkano::format::D16Unorm).unwrap();
 
-    let proj = cgmath::perspective(cgmath::Rad(std::f32::consts::FRAC_PI_2),
-                { let d = images[0].dimensions(); d[0] as f32 / d[1] as f32 }, 0.01, 100.0);
+    let proj = cgmath::perspective(cgmath::Rad(std::f32::consts::FRAC_PI_2), { let d = images[0].dimensions(); d[0] as f32 / d[1] as f32 }, 0.01, 100.0);
     //let proj = cgmath::ortho(-15.0, 15.0, 15.0, -15.0, 0.01, 100.0);
-    let view = cgmath::Matrix4::look_at(cgmath::Point3::new(0.0, 7.0, 0.0),
-                                        cgmath::Point3::new(0.0, 0.0, 0.0),
-                                        cgmath::Vector3::new(0.0, 0.0, 1.0));
-
+    let view = cgmath::Matrix4::look_at(cgmath::Point3::new(0.0, 7.0, 0.0), cgmath::Point3::new(0.0, 0.0, 0.0), cgmath::Vector3::new(0.0, 0.0, 1.0));
     let scale = cgmath::Matrix4::from_scale(1.0);
 
     let uniform_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::<vs::ty::Data>
@@ -191,18 +295,24 @@ fn main() {
         vulkano::framebuffer::Framebuffer::new(&renderpass, [image.dimensions()[0], image.dimensions()[1], 1], attachments).unwrap()
     }).collect::<Vec<_>>();
 
-
-    //let mut chess_figures = Vec::<Vec<Arc<PrimaryCommandBuffer>>>::new();
     let mut white_fields = Vec::new();
     let mut black_fields = Vec::new();
-    for outer in 1..9 {
-        for i in 1..9 {
-            if outer % 2 == 1 {
+    let mut white_centers = Vec::new();
+    let mut black_centers = Vec::new();
+    for outer in 0..8 {
+        for i in 0..8 {
+            if (outer % 2 == 0 && i % 2 == 1) || (outer % 2 == 1 && i % 2 == 0) {
                 white_fields.push(Model::from_data(&data::FIELD_V, &data::FIELD_N, &data::FIELD_I));
-                white_fields.last_mut().unwrap().translate((0.0 + (i - 4) as f32, 0.0, 0.0 + (outer - 4) as f32));
+                white_fields.last_mut().unwrap().translate((i as f32 - 3.5, 0.0, outer as f32 - 3.5));
+                white_centers.push(cgmath::Point3{ x: i as f32 - 3.5,
+                                                   y: 0.0,
+                                                   z: outer as f32 - 3.5 });
             } else {
                 black_fields.push(Model::from_data(&data::FIELD_V, &data::FIELD_N, &data::FIELD_I));
-                black_fields.last_mut().unwrap().translate((0.0 + (i - 4) as f32, 0.0, 0.0 + (outer - 4) as f32));
+                black_fields.last_mut().unwrap().translate((i as f32 - 3.5, 0.0, outer as f32 - 3.5));
+                black_centers.push(cgmath::Point3{ x: i as f32 - 3.5,
+                                                   y: 0.0,
+                                                   z: outer as f32 - 3.5 });
             }
         }
     }
@@ -218,22 +328,31 @@ fn main() {
     let mut fields = Vec::new();
     for mut elem in buffers {
         for index in 0..white_fields.len() {
-            elem = elem.draw_indexed(&pipeline, (&white_fields[index].vertex_buffer(&device, &queue),
-                                                 &white_fields[index].normal_buffer(&device, &queue)),
-                                                 &white_fields[index].index_buffer(&device, &queue),
-                                                 &vulkano::command_buffer::DynamicState::none(), &set, &());
-            elem = elem.draw_indexed(&pipeline, (&black_fields[index].vertex_buffer(&device, &queue),
-                                                 &black_fields[index].normal_buffer(&device, &queue)),
-                                                 &black_fields[index].index_buffer(&device, &queue),
-                                                 &vulkano::command_buffer::DynamicState::none(), &set, &());
+            elem = elem.draw_indexed(&pipeline, (&white_fields[index].vertex_buffer(&device, &queue), &white_fields[index].normal_buffer(&device, &queue)),
+                                           &white_fields[index].index_buffer(&device, &queue), &vulkano::command_buffer::DynamicState::none(), &set, &());
+            elem = elem.draw_indexed(&pipeline, (&black_fields[index].vertex_buffer(&device, &queue), &black_fields[index].normal_buffer(&device, &queue)),
+                                           &black_fields[index].index_buffer(&device, &queue), &vulkano::command_buffer::DynamicState::none(), &set, &());
         }
         fields.push(elem.draw_end().build());
     }
 
     let mut submissions: Vec<Arc<vulkano::command_buffer::Submission>> = Vec::new();
 
-    let mut graphics = GraphicsEngine{ device: device, queue: queue, swapchain: swapchain, images: images, command_buffers: Arc::new(Vec::new())};
+    let mut graphics = GraphicsEngine{ device: device,
+                                       queue: queue,
+                                       swapchain: swapchain,
+                                       command_buffers: Arc::new(Vec::new()),
+                                       field_positions: Arc::new(Vec::new()),
+                                       uniform: Matrices {
+                                           world : <cgmath::Matrix4<f32> as cgmath::SquareMatrix>::identity(),
+                                           view : (view * scale),
+                                           proj : proj,
+                                       },
+                                       screenwidth: images[0].dimensions()[0],
+                                       screenheight: images[0].dimensions()[1]};
     graphics.add_command_buffer(fields);
+    graphics.add_field_centers(white_centers);
+    graphics.add_field_centers(black_centers);
     let mut system = System::new();
 
     loop {
@@ -261,8 +380,10 @@ fn main() {
                 winit::Event::Closed => return,
                 winit::Event::MouseMoved(x, y) => system.set_mouse_coordinates(x, y),
                 winit::Event::MouseInput(winit::ElementState::Pressed, winit::MouseButton::Left) => {
-                    //let selection = get_field(system.mouse());
-                    //system.set_selected(selection);
+                    if let Some(selection) = graphics.get_field(system.mouse()) {
+                        system.set_selected(selection);
+                        //system.check_ready_and_play();
+                    }
                 },
                 _ => ()
             }

@@ -32,25 +32,28 @@ impl System {
         self.mouse_y = y;
     }
 
-    pub fn set_selected(&mut self) {
-        /*let field = match (self.mouse_x, self.mouse_y) {
-            // TODO select a field an set as selected
-            _ => ()
-        }
-
-        if from.is_none() {
-            from = Some(field);
-        } else if to.is_none() {
-            to = Some(field)
+    pub fn set_selected(&mut self, pos: (u8, u8)) {
+        println!("What system gets: {}, {}", pos.0, pos.1);
+        
+        if self.from.is_none() {
+            self.from = Some(Position::new(pos.0, pos.1));
+        } else if self.to.is_none() {
+            self.to = Some(Position::new(pos.0, pos.1));
         } else {
-            from = Some(field);
-            to = None;
-        }*/
+            self.from = Some(Position::new(pos.0, pos.1));
+            self.to = None;
+        }
     }
 
-    pub fn execute_turn(&self) {
-        /*if self.game.board.is_move_valid(from, to) {
-            self.game.do_turn(from, to);
-        }*/
+    pub fn check_ready_and_play(&mut self) {
+        if self.from.is_some() && self.to.is_some() {
+            self.execute_turn();
+        }
+    }
+
+    pub fn execute_turn(&mut self) {
+        if self.game.board.is_move_valid(self.from.unwrap(), self.to.unwrap()) {
+            self.game.do_turn(self.from.unwrap(), self.to.unwrap());
+        }
     }
 }

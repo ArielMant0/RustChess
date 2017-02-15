@@ -58,4 +58,5 @@ impl Model {
                                                  x.position.2 + direction.2)})
                                      .collect();
     }
+
 }

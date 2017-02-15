@@ -480,15 +480,15 @@ impl Board {
     }
 
     /// return wether one if the players' has won or a king is just in check
-    pub fn checkmate(&mut self, one: &mut Player, two: &mut Player) -> Option<(Color, bool)> {
+    pub fn checkmate(&mut self, one: &mut Player, two: &mut Player) -> bool {
         if self.in_check(one.king(), two) {
-            return Some((one.color(), one.can_king_be_saved(self, two)))
+            return !one.can_king_be_saved(self, two)
         }
 
         if self.in_check(two.king(), one) {
-            return Some((two.color(), two.can_king_be_saved(self, one)))
+            return !two.can_king_be_saved(self, one)
         }
 
-        None
+        false
     }
 }
