@@ -4,5 +4,9 @@ cache: cargo
 sudo: false
 git:
   depth: 1
+before_script:
+  - chmod +x ci/run-all.sh
+  - chmod +x ci/test-all.sh
+  - chmod +x ci/check-basic-style.sh
 script:
   - ci/run-all.sh
