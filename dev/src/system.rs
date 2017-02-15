@@ -34,7 +34,7 @@ impl System {
 
     pub fn set_selected(&mut self, pos: (u8, u8)) {
         println!("What system gets: {}, {}", pos.0, pos.1);
-        
+
         if self.from.is_none() {
             self.from = Some(Position::new(pos.0, pos.1));
         } else if self.to.is_none() {
