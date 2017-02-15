@@ -120,7 +120,7 @@ impl GraphicsEngine {
                 }
             }
         }*/
-        
+
         if let Some(inverse) = self.uniform.view.invert() {
             let direction = cgmath::Vector3{ x: (x * inverse.x.x) + (y * inverse.y.x) + inverse.z.x,
                                              y: (x * inverse.x.y) + (y * inverse.y.y) + inverse.z.y,
@@ -136,13 +136,13 @@ impl GraphicsEngine {
                                                           });
                     //let translation = cgmath::Matrix4::from_translation(cgmath::Vector3::new(0.0, 0.0, 0.0));
                     world = world * translation;
-                    
+
                     let inverse_world = world.invert().unwrap();
                     let mut ray_direction = inverse_world.transform_vector(direction.normalize());
                     ray_direction = ray_direction.normalize();
                     let ray_origin = inverse_world.transform_point(cgmath::Point3{ x: 0.0,
                                                                                    y: 7.0,
-                                                                                   z: 0.0 });;
+                                                                                   z: 0.0 });
 
                     if GraphicsEngine::ray_intersect(&ray_origin, &ray_direction, &self.field_positions[i][index]) {
                         return Some(self.map_field_positions(i, index))
@@ -163,11 +163,11 @@ impl GraphicsEngine {
     }
 
     fn ray_intersect(origin: &cgmath::Point3<f32>, direction: &cgmath::Vector3<f32>, center: &cgmath::Point3<f32>) -> bool {
-        
+
         let a = (direction.x * direction.x) + (direction.y * direction.y) + (direction.z * direction.z);
         let b = ((direction.x * origin.x) + (direction.y * origin.y) + (direction.z * origin.z)) * 2.0;
         let c = ((origin.x * origin.x) + (origin.y * origin.y) + (origin.z * origin.z)) - (0.5 * 0.5);
-        
+
         let discriminant = (b*b) -(4.0*a*c);
 
         if (discriminant < 0.0)
@@ -177,7 +177,7 @@ impl GraphicsEngine {
         true
         /*let normal = cgmath::Vector3::new(center.x, 1.0, center.z);
         let denom = normal.dot(*direction);
-        
+
         println!("Position: {}, {}",
                         center.x,
                         center.z);
@@ -232,9 +232,12 @@ fn main() {
 
     let depth_buffer = vulkano::image::attachment::AttachmentImage::transient(&device, images[0].dimensions(), vulkano::format::D16Unorm).unwrap();
 
-    let proj = cgmath::perspective(cgmath::Rad(std::f32::consts::FRAC_PI_2), { let d = images[0].dimensions(); d[0] as f32 / d[1] as f32 }, 0.01, 100.0);
+    let proj = cgmath::perspective(cgmath::Rad(std::f32::consts::FRAC_PI_2),
+                                  { let d = images[0].dimensions(); d[0] as f32 / d[1] as f32 }, 0.01, 100.0);
     //let proj = cgmath::ortho(-15.0, 15.0, 15.0, -15.0, 0.01, 100.0);
-    let view = cgmath::Matrix4::look_at(cgmath::Point3::new(0.0, 7.0, 0.0), cgmath::Point3::new(0.0, 0.0, 0.0), cgmath::Vector3::new(0.0, 0.0, 1.0));
+    let view = cgmath::Matrix4::look_at(cgmath::Point3::new(0.0, 7.0, 0.0),
+                                        cgmath::Point3::new(0.0, 0.0, 0.0),
+                                        cgmath::Vector3::new(0.0, 0.0, 1.0));
     let scale = cgmath::Matrix4::from_scale(1.0);
 
     let uniform_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::<vs::ty::Data>
@@ -328,10 +331,14 @@ fn main() {
     let mut fields = Vec::new();
     for mut elem in buffers {
         for index in 0..white_fields.len() {
-            elem = elem.draw_indexed(&pipeline, (&white_fields[index].vertex_buffer(&device, &queue), &white_fields[index].normal_buffer(&device, &queue)),
-                                           &white_fields[index].index_buffer(&device, &queue), &vulkano::command_buffer::DynamicState::none(), &set, &());
-            elem = elem.draw_indexed(&pipeline, (&black_fields[index].vertex_buffer(&device, &queue), &black_fields[index].normal_buffer(&device, &queue)),
-                                           &black_fields[index].index_buffer(&device, &queue), &vulkano::command_buffer::DynamicState::none(), &set, &());
+            elem = elem.draw_indexed(&pipeline, (&white_fields[index].vertex_buffer(&device, &queue),
+                                                 &white_fields[index].normal_buffer(&device, &queue)),
+                                                 &white_fields[index].index_buffer(&device, &queue),
+                                                 &vulkano::command_buffer::DynamicState::none(), &set, &());
+            elem = elem.draw_indexed(&pipeline, (&black_fields[index].vertex_buffer(&device, &queue),
+                                                 &black_fields[index].normal_buffer(&device, &queue)),
+                                                 &black_fields[index].index_buffer(&device, &queue),
+                                                 &vulkano::command_buffer::DynamicState::none(), &set, &());
         }
         fields.push(elem.draw_end().build());
     }
