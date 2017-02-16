@@ -30,7 +30,9 @@ pub struct ChessGame {
     pub player_one: Player,
     pub player_two: Player,
     pub board: Board,
-    pub turn: bool
+    pub turn: bool,
+    pub gameover: bool,
+    pub captured: bool
 }
 
 impl ChessGame {
@@ -38,21 +40,59 @@ impl ChessGame {
         ChessGame{ player_one: Player::new(PlayerType::Human, Color::White),
                    player_two: Player::new(PlayerType::Human, Color::Black),
                    board: Board::new(),
-                   turn: true }
+                   turn: true,
+                   gameover: false,
+                   captured: false }
+    }
+
+    pub fn was_captured(&self) -> bool {
+        self.captured
+    }
+
+    pub fn turn_color(&self) -> Color {
+        if self.turn {
+            Color::White
+        } else {
+            Color::Black
+        }
     }
 
     pub fn do_turn(&mut self, from: Position, to: Position) {
-        let (mut attack, mut defend) = match self.turn {
-            true => (&mut self.player_one, &mut self.player_two),
-            false => (&mut self.player_two, &mut self.player_one)
-        };
 
-        if !self.board.is_empty(to) {
-            let name = self.board.get_figure(to).unwrap().name();
-            defend.capture(to, name);
+        if !self.gameover {
+            if self.board.checkmate(&mut self.player_one, &mut self.player_two) {
+                self.gameover = true;
+                return
+            }
+
+            let (mut attack, mut defend) = match self.turn {
+                true => (&mut self.player_one, &mut self.player_two),
+                false => (&mut self.player_two, &mut self.player_one)
+            };
+            println!("{} Player's turn", if self.turn {"White"} else {"Black"});
+
+            let mut name = String::new();
+            self.captured = false;
+
+            if !self.board.is_empty(to) {
+                name = self.board.get_figure(to).unwrap().name();
+                defend.capture(to, name.clone());
+                self.captured = true;
+            }
+            self.board.move_figure(from, to);
+            attack.move_figure(from, to);
+
+            if !self.board.in_check(attack.king(), defend) {
+                self.turn = !self.turn;
+                return
+            } else {
+                if self.captured {
+                    defend.reverse_capture(&name, to);
+                    self.captured = false;
+                }
+                self.board.move_figure(to, from);
+                attack.move_figure(to, from);
+            }
         }
-        self.board.move_figure(from, to);
-        attack.move_figure(from, to);
-        self.turn = !self.turn;
     }
 }
