@@ -50,8 +50,8 @@ use vulkano::pipeline::{GraphicsPipeline};
 use vulkano::framebuffer::{Framebuffer};
 use vulkano::command_buffer::{PrimaryCommandBuffer};
 
-mod vs { include!{concat!(env!("OUT_DIR"), "/shaders/src/bin/teapot_vs.glsl")} }
-mod fs { include!{concat!(env!("OUT_DIR"), "/shaders/src/bin/teapot_fs.glsl")} }
+mod vs { include!{concat!(env!("OUT_DIR"), "/shaders/src/bin/chess_vs.glsl")} }
+mod fs { include!{concat!(env!("OUT_DIR"), "/shaders/src/bin/chess_fs.glsl")} }
 
 mod data;
 mod model;

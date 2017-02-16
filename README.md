@@ -17,3 +17,5 @@ We have the basic functionalities of a chess game as a console application.
  - Improve Intersection Tests for Models and Fields  
  - Animation, not actually Animations, but a function that changes the position of a piece slowly rather then instantly move the piece.  
  - AI Player (dumb and smart)  
+ - Rotate Knight Normals    
+ - Rotate Bishop  
