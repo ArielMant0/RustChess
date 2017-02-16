@@ -346,7 +346,7 @@ impl Figure {
             if from.0 as u8  == to.0 as u8 {
                 from.1 + 1 == to.1 || (from.1.checked_sub(1).is_some() && from.1 - 1 == to.1)
             //  right or left
-            } else if from.1 + 1 == to.1 {
+            } else if from.1 == to.1 {
                 from.0 as u8 + 1 == to.0 as u8 || ((from.0 as u8).checked_sub(1).is_some() &&
                                                     from.0 as u8 - 1 == to.0 as u8)
             // diagonal right
@@ -397,7 +397,7 @@ impl PartialEq for Figure {
 
 #[derive(Debug)]
 pub struct Board {
-    fields: HashMap<(char, u8), BoardField>
+    pub fields: HashMap<(char, u8), BoardField>
 }
 
 impl Board {
@@ -514,16 +514,41 @@ impl Board {
     }
 
     /// return wether one if the players' has won or a king is just in check
-    pub fn checkmate(&mut self, one: &mut Player, two: &mut Player) -> Option<(Colour, bool)> {
+    pub fn checkmate(&mut self, one: &mut Player, two: &mut Player) -> Option<(Colour, i8)> {
         if self.in_check(one.king(), two) {
-            return Some((one.color(), one.can_king_be_saved(self, two)))
+            if one.can_king_be_saved(self, two) {
+                return Some((one.color(), 0))
+            } else {
+                return Some((one.color(), -1))
+            }
         }
 
         if self.in_check(two.king(), one) {
-            return Some((two.color(), two.can_king_be_saved(self, one)))
+            if two.can_king_be_saved(self, one) {
+                return Some((two.color(), 0))
+            } else {
+                return Some((two.color(), -2))
+            }
         }
 
         None
+    }
+}
+
+impl ::std::clone::Clone for Board {
+    fn clone(&self) -> Self {
+        let mut f = HashMap::new();
+        for (&pos, field) in self.fields.iter() {
+            f.insert(pos, BoardField{ color: field.color, figure: field.figure });
+        }
+        Board{ fields: f }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.fields.clear();
+        for (&pos, field) in source.fields.iter() {
+            self.fields.insert(pos, BoardField{ color: field.color, figure: field.figure });
+        }
     }
 }
 

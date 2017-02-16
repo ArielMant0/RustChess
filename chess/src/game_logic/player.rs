@@ -90,15 +90,31 @@ impl Player {
         self.figures.clone()
     }
 
-    pub fn get_move(&self, board: &Board) -> ((char, u8), (char, u8)) {
+    pub fn get_move(&self, board: &Board, other: &Player) -> ((char, u8), (char, u8)) {
         match self.ptype {
             PlayerType::Human => get_human_move(board),
-            _ => get_ai_move(board, self.ptype)
+            _ => get_ai_move(board, self, other, self.ptype)
         }
     }
 
     pub fn king(&self) -> (char, u8) {
         self.figures.get("king").unwrap()[0]
+    }
+
+    pub fn get_possible_moves(&self, board: &Board) -> Vec<((char, u8), (char, u8))> {
+        let mut moves = Vec::new();
+        for (n, v) in self.figures.iter() {
+            for i in 0..v.len() {
+                for outer in 1..9 {
+                    for inner in 1..9 {
+                        if board.is_move_valid(v[i], (char::from(outer as u8 + OFFSET), inner)) {
+                            moves.push((v[i], (char::from(outer as u8 + OFFSET), inner)));
+                        }
+                    }
+                }
+            }
+        }
+        moves
     }
 
     pub fn move_figure(&mut self, before: (char, u8), after: (char, u8)) {
@@ -174,5 +190,25 @@ impl Player {
 impl Display for Player {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         write!(f, "{}", self.color)
+    }
+}
+
+impl ::std::clone::Clone for Player {
+    fn clone(&self) -> Self {
+        let mut f = HashMap::new();
+        for (name, pos) in self.figures.iter() {
+            f.insert(name.clone(), pos.clone());
+        }
+        Player{ figures: f, color: self.color, ptype: self.ptype }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.figures.clear();
+        self.color = source.color;
+        self.ptype = source.ptype;
+
+        for (name, pos) in source.figures.iter() {
+            self.figures.insert(name.clone(), pos.clone());
+        }
     }
 }

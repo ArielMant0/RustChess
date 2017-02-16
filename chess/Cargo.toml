@@ -5,3 +5,4 @@ authors = ["Franziska Becker <buecher.apps@gmail.com>, René Warnking <rwarnking
 
 [dependencies]
 clap = "2.20.0"
+rand = "0.3.15"
