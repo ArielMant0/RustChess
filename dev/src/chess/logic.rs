@@ -392,7 +392,7 @@ impl Board {
                     a @ (6, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Bishop)}),
                     a @ (5, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(King)}),
                     a @ (4, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Queen)}),
-                    a @ _ => {
+                    _ => {
                         let c = {
                             if outer % 2 == 1 && inner % 2 == 0 || outer % 2 == 0 && inner % 2 == 1 {
                                 White

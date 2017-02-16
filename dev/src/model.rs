@@ -23,10 +23,11 @@
 use vulkano::device::{Device, Queue};
 use vulkano::buffer::cpu_access::{CpuAccessibleBuffer};
 
+use cgmath::{Deg, Transform, Point3, Matrix3};
+
 use std::sync::Arc;
 
 use data::{Vertex, Normal};
-use chess::logic::Color::{self, Black, White};
 
 pub struct Model {
     pub vertices: Vec<Vertex>,
@@ -62,16 +63,6 @@ impl Model {
 
     }
 
-    pub fn color_buffer(&self, c: Color, dev: &Arc<Device>, q: &Arc<Queue>) -> Arc<CpuAccessibleBuffer<(f32, f32, f32)>> {
-        let color = match c {
-            Black => (0.0, 0.0, 0.0),
-            _ => (1.0, 1.0, 1.0)
-        };
-        super::vulkano::buffer::cpu_access::CpuAccessibleBuffer
-               ::from_data(dev, &super::vulkano::buffer::BufferUsage::all(), Some(q.family()), color)
-                     .expect("failed to create model color buffer")
-    }
-
     pub fn translate(&mut self, direction: (f32, f32, f32)) {
         self.vertices = self.vertices.iter()
                                      .map(|x| Vertex{ position:
@@ -81,5 +72,15 @@ impl Model {
                                      .collect();
     }
 
-}
+    pub fn rotate_around_y(&mut self, angle: f32) {
+        let rotation = Matrix3::from_angle_y(Deg(angle));
 
+        self.vertices = self.vertices.iter()
+                                     .map(|x| {
+                let vec = rotation.transform_point(Point3::new(x.position.0, x.position.1, x.position.2));
+                Vertex{ position: (vec.x, vec.y, vec.z) }
+            })
+            .collect();
+    }
+
+}

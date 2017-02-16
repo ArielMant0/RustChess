@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use chess::logic::{Color, Position, BoardField};
+use chess::logic::{Color, Position};
 use chess::ChessGame;
 
 pub struct System {
@@ -57,57 +57,57 @@ impl System {
     pub fn set_selected(&mut self, pos: (u8, u8)) {
         let at = Position::new(pos.0, pos.1);
 
-        if !self.game.board.is_empty(at) && self.game.board.get_figure_color(at).unwrap() == self.game.turn_color() {
-            match (self.from, self.to) {
-                (None, None) => self.from = Some(at),
-                (Some(_), None) => self.to = Some(at),
-                (Some(_), Some(_)) => {
+        match (self.from, self.to) {
+            (None, None) => {
+                if !self.game.board.is_empty(at) && self.game.board.get_figure_color(at).unwrap() == self.game.turn_color() {
                     self.from = Some(at);
-                    self.to = None;
-                },
-                _ => unreachable!()
-            }
+                }
+            },
+            (Some(_), None) => {
+                if self.game.board.is_empty(at) || self.game.board.get_figure_color(at).unwrap() != self.game.turn_color() {
+                    self.to = Some(at);
+                }
+            },
+            (Some(_), Some(_)) => {
+                if !self.game.board.is_empty(at) && self.game.board.get_figure_color(at).unwrap() == self.game.turn_color() {
+                    self.from = Some(at);
+                } else {
+                    self.from = None;
+                }
+                self.to = None;
+            },
+            _ => unreachable!()
         }
     }
 
-    pub fn check_ready_and_play(&mut self)
-        -> Option<((Color, Position, Position), Option<(Color, Position)>)>
+    pub fn check_ready_and_play(&mut self) -> Option<((Color, Position, Position), Option<(Color, Position)>)>
     {
         if self.from.is_some() && self.to.is_some() {
-            self.execute_turn();
-            if self.game.was_captured() {
+            if self.execute_turn() {
                 let one = self.game.turn_color();
                 let two = if one == Color::Black {Color::White} else {Color::Black};
-
-                return Some(((one, self.from.unwrap(), self.to.unwrap()), Some((two, self.to.unwrap()))))
+            
+                if self.game.was_captured() {
+                    return Some(((two, self.from.unwrap(), self.to.unwrap()), Some((one, self.to.unwrap()))))
+                } else {
+                    return Some(((two, self.from.unwrap(), self.to.unwrap()), None))
+                }
             } else {
-                let one = self.game.turn_color();
-                return Some(((one, self.from.unwrap(), self.to.unwrap()), None))
+                return None
             }
         }
         None
     }
 
-    pub fn execute_turn(&mut self) {
+    pub fn execute_turn(&mut self) -> bool {
         if self.game.board.is_move_valid(self.from.unwrap(), self.to.unwrap()) {
-            self.game.do_turn(self.from.unwrap(), self.to.unwrap());
+            self.game.do_turn(self.from.unwrap(), self.to.unwrap())
+        } else {
+            false
         }
     }
 
     pub fn from_position(pos: &Position) -> ::cgmath::Point3<f32> {
-        ::cgmath::Point3::new(pos.x as f32 - 5.0, 0.0, pos.y as f32 + 5.0)
-    }
-
-    pub fn check_ready_and_play(&mut self) {
-        if self.from.is_some() && self.to.is_some() {
-            self.execute_turn();
-        }
-    }
-
-    pub fn execute_turn(&mut self) {
-        if self.game.board.is_move_valid(self.from.unwrap(), self.to.unwrap()) {
-            self.game.do_turn(self.from.unwrap(), self.to.unwrap());
-        }
+        ::cgmath::Point3::new(4.5 - pos.x as f32, 0.1, 4.5 - pos.y as f32)
     }
 }
-

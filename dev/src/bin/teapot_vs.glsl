@@ -32,6 +32,7 @@ void main() {
     mat4 worldview = uniforms.view * uniforms.world;
 	v_normal = transpose(inverse(mat3(worldview))) * normal;
 	gl_Position = uniforms.proj * worldview * vec4(position, 1.0);
-
+	
 	base_color = m_color.col;
+
 }

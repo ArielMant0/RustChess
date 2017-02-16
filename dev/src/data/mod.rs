@@ -35,7 +35,11 @@ pub struct Normal {
 impl_vertex!(Normal, normal);
 
 pub mod pawn;
-pub mod teapot;
+pub mod king;
+pub mod queen;
+pub mod bishop;
+pub mod knight;
+pub mod rook;
 
 pub const FIELD_V: [Vertex; 8] = [
     Vertex { position: (0.5, 0.0, -0.5) },

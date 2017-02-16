@@ -57,19 +57,19 @@ impl ChessGame {
         }
     }
 
-    pub fn do_turn(&mut self, from: Position, to: Position) {
+    pub fn do_turn(&mut self, from: Position, to: Position) -> bool {
 
         if !self.gameover {
             if self.board.checkmate(&mut self.player_one, &mut self.player_two) {
                 self.gameover = true;
-                return
+                println!("Game is over");
+                return false
             }
 
             let (mut attack, mut defend) = match self.turn {
                 true => (&mut self.player_one, &mut self.player_two),
                 false => (&mut self.player_two, &mut self.player_one)
             };
-            println!("{} Player's turn", if self.turn {"White"} else {"Black"});
 
             let mut name = String::new();
             self.captured = false;
@@ -77,7 +77,6 @@ impl ChessGame {
             if !self.board.is_empty(to) {
                 name = self.board.get_figure(to).unwrap().name();
                 defend.capture(to, name.clone());
-
                 self.captured = true;
             }
             self.board.move_figure(from, to);
@@ -85,7 +84,7 @@ impl ChessGame {
 
             if !self.board.in_check(attack.king(), defend) {
                 self.turn = !self.turn;
-                return
+                return true
             } else {
                 if self.captured {
                     defend.reverse_capture(&name, to);
@@ -93,7 +92,9 @@ impl ChessGame {
                 }
                 self.board.move_figure(to, from);
                 attack.move_figure(to, from);
+                return false
             }
         }
+        false
     }
 }
