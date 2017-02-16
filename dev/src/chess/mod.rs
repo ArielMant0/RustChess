@@ -77,6 +77,7 @@ impl ChessGame {
             if !self.board.is_empty(to) {
                 name = self.board.get_figure(to).unwrap().name();
                 defend.capture(to, name.clone());
+
                 self.captured = true;
             }
             self.board.move_figure(from, to);

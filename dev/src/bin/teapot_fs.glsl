@@ -21,7 +21,7 @@ const vec3 LIGHT = vec3(0.0, -1.0, 1.0);
 
 void main() {
     float brightness = dot(normalize(v_normal), normalize(LIGHT));
-    
+
 	vec3 dark_color = vec3(0.0, 0.0, 0.0);
 	if (base_color.r > 0.2) {
 		dark_color.r = base_color.r - 0.1;

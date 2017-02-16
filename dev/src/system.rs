@@ -97,4 +97,17 @@ impl System {
     pub fn from_position(pos: &Position) -> ::cgmath::Point3<f32> {
         ::cgmath::Point3::new(pos.x as f32 - 5.0, 0.0, pos.y as f32 + 5.0)
     }
+
+    pub fn check_ready_and_play(&mut self) {
+        if self.from.is_some() && self.to.is_some() {
+            self.execute_turn();
+        }
+    }
+
+    pub fn execute_turn(&mut self) {
+        if self.game.board.is_move_valid(self.from.unwrap(), self.to.unwrap()) {
+            self.game.do_turn(self.from.unwrap(), self.to.unwrap());
+        }
+    }
 }
+
