@@ -157,9 +157,15 @@ impl GraphicsEngine {
         }
     }
 
-    fn update_command_buffers(&mut self, uniform: &Arc<CpuAccessibleBuffer<vs::ty::Data>>, whites: &Vec<Model>, blacks: &Vec<Model>,
-        pipeline: &Arc<GraphicsPipeline<vulkano::pipeline::vertex::TwoBuffersDefinition<data::Vertex, data::Normal>, pipeline_layout::CustomPipeline, renderpass::CustomRenderPass>>,
-        set: &Arc<pipeline_layout::set0::Set>, framebuffers: &Vec<Arc<Framebuffer<renderpass::CustomRenderPass>>>, renderpass: &Arc<renderpass::CustomRenderPass>)
+    fn update_command_buffers(&mut self,
+        uniform: &Arc<CpuAccessibleBuffer<vs::ty::Data>>,
+        whites: &Vec<Model>,
+        blacks: &Vec<Model>,
+        pipeline: &Arc<GraphicsPipeline<vulkano::pipeline::vertex::TwoBuffersDefinition<data::Vertex, data::Normal>,
+                       pipeline_layout::CustomPipeline,
+                       renderpass::CustomRenderPass>>,
+        set: &Arc<pipeline_layout::set0::Set>, framebuffers: &Vec<Arc<Framebuffer<renderpass::CustomRenderPass>>>,
+        renderpass: &Arc<renderpass::CustomRenderPass>)
     {
        let buffers = framebuffers.iter().map(|framebuffer| {
         vulkano::command_buffer::PrimaryCommandBufferBuilder::new(&self.device, self.queue.family())
@@ -486,7 +492,7 @@ fn main() {
 
         let image_num = graphics.swapchain.acquire_next_image(Duration::from_millis(1)).unwrap();
         // Update command buffers, not sure if necessary
-        // graphics.update_command_buffers(&uniform_buffer, &white_fields, &black_fields, &pipeline, &set, &framebuffers, &renderpass);
+        // graphics.update_command_buffers(&uniform_buffer, &white_fields, &black_fields, &pipeline, &set, &framebuffers, &renderpass)
 
         for index in 0..graphics.command_buffers.len() {
             submissions.push(vulkano::command_buffer::submit(&graphics.command_buffers[index][image_num], &graphics.queue).unwrap());
