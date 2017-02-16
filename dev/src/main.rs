@@ -313,10 +313,10 @@ impl GraphicsEngine {
              })
         }).collect::<Vec<_>>();
 
-        let field_black = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.1, 0.1, 0.1).into() };
+        let field_black = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.0, 0.0, 0.0).into() };
         let field_white = vs::ty::FigureColor{ col: cgmath::Vector3::new(1.0, 1.0, 1.0).into() };
-        let white = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.8, 0.8, 0.8).into() };
-        let black = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.25, 0.25, 0.25).into() };
+        let white = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.9, 0.9, 0.9).into() };
+        let black = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.15, 0.15, 0.15).into() };
 
         let mut fields = Vec::new();
         for mut buf in buffers {
@@ -461,7 +461,8 @@ fn main() {
                                 vs::ty::Data {
                                     world : <cgmath::Matrix4<f32> as cgmath::SquareMatrix>::identity().into(),
                                     view : view.into(),
-                                    proj : proj.into()
+                                    proj : proj.into(),
+                                    camera: camera.into()
                                 })
                                .expect("failed to create buffer");
 
@@ -584,6 +585,7 @@ fn main() {
                         let mut buffer_content = uniform_buffer.write(Duration::new(1, 0)).unwrap();
 
                         buffer_content.view = cgmath::Matrix4::look_at(cam, cgmath::Point3::new(0.0, 0.0, 0.0), up).into();
+                        buffer_content.camera = cam.into();
                     }
                 },
                 // Update mouse coordinates in System

@@ -52,26 +52,28 @@ pub const FIELD_V: [Vertex; 8] = [
     Vertex { position: (-0.5, 0.1, -0.5) }
 ];
 
-pub const FIELD_N: [Normal; 6] = [
-    Normal { normal: (0.0, -1.0, 0.0) },
-    Normal { normal: (0.0, 1.0, 0.0) },
-    Normal { normal: (1.0, 0.0, 0.0) },
-    Normal { normal: (0.0, 0.0, 1.0) },
-    Normal { normal: (-1.0, 0.0, 0.0) },
-    Normal { normal: (0.0, 0.0, -1.0) }
+pub const FIELD_N: [Normal; 8] = [
+    Normal { normal: (0.5773, -0.5773, -0.5773) },
+    Normal { normal: (0.5773, -0.5773, 0.5773) },
+    Normal { normal: (-0.5773, -0.5773, 0.5773) },
+    Normal { normal: (-0.5773, -0.5773, -0.5773) },
+    Normal { normal: (0.5773, 0.5773, -0.5773) },
+    Normal { normal: (0.5773, 0.5773, 0.5773) },
+    Normal { normal: (-0.5773, 0.5773, 0.5773) },
+    Normal { normal: (-0.5773, 0.5773, -0.5773) }
 ];
 
 pub const FIELD_I: [u16; 36] = [
-    0, 1, 2,
-    2, 3, 0,
-    0, 1, 5,
-    5, 4, 0,
-    4, 5, 6,
-    6, 7, 4,
-    1, 2, 6,
-    6, 5, 1,
-    2, 6, 7,
-    7, 3, 2,
-    3, 7, 4,
-    4, 0, 3
+    1, 3, 0,
+    7, 5, 4,
+    4, 1, 0,
+    5, 2, 1,
+    6, 3, 2,
+    0, 7, 4,
+    1, 2, 3,
+    7, 6, 5,
+    4, 5, 1,
+    5, 6, 2,
+    6, 7, 3,
+    0, 3, 7
 ];

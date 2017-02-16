@@ -328,7 +328,7 @@ impl Figure {
             if from.x == to.x {
                 from.y + 1 == to.y || (from.y.checked_sub(1).is_some() && from.y - 1 == to.y)
             //  right or left
-            } else if from.y + 1 == to.y {
+            } else if from.y == to.y {
                 from.x + 1 == to.x || (from.x.checked_sub(1).is_some() && from.x - 1 == to.x)
             // diagonal right
             } else if from.x + 1 == to.x {

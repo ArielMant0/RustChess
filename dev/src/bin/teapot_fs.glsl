@@ -14,34 +14,37 @@
 
 layout(location = 0) in vec3 v_normal;
 layout(location = 1) in vec3 base_color;
+layout(location = 2) in vec3 frag_pos;
+layout(location = 3) in vec3 view_pos;
 
 layout(location = 0) out vec4 f_color;
 
-const vec3 LIGHT = vec3(0.0, -1.0, 1.0);
+const vec3 LIGHT = vec3(0.0, 10.0, 0.0);
 
 void main() {
-    float brightness = dot(normalize(v_normal), normalize(LIGHT));
-    
-	vec3 dark_color = vec3(0.0, 0.0, 0.0);
-	if (base_color.r > 0.2) {
-		dark_color.r = base_color.r - 0.1;
+
+	vec3 norm = normalize(v_normal);
+	vec3 light_dir = normalize(LIGHT - frag_pos);
+
+	float diff = max(dot(norm, light_dir), 0.0);
+	vec3 light_color = vec3(1.0, 1.0, 1.0);
+	vec3 diffuse = diff * light_color;
+
+	float ambient_strength = 0.2;
+	vec3 ambient = ambient_strength * light_color;
+
+	float specular_strength = 1.0;
+    vec3 view_dir = normalize(view_pos - frag_pos);
+	vec3 reflect_dir = reflect(-light_dir, norm);
+
+	float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+	vec3 specular = specular_strength * spec * light_color;
+
+	// 	vec3 result = (diffuse + ambient + specular) * base_color;
+	if (diffuse.x < 0.2 && diffuse.y < 0.2 && diffuse.z < 0.2) {
+		vec3 result = ambient * base_color;
 	}
-	if (base_color.g > 0.2) {
-		dark_color.g = base_color.g - 0.1;
-	}
-	if (base_color.b > 0.2) {
-		dark_color.b = base_color.b - 0.1;
-	}
+	vec3 result = (diffuse + specular) * base_color;
 
-	//float intensity = clamp(dot(v_normal, -1 * LIGHT), 0.0, 1.0);
-
-	//f_color.rgb = base_color;
-	//f_color.a = 1.0;
-	//f_color = f_color * vec4(vec3(0.9, 0.85, 0.85) * (0.2 + intensity), 1.0);
-
-	//f_color.r = clamp(f_color.r, 0.0, 1.0);
-	//f_color.g = clamp(f_color.g, 0.0, 1.0);
-	//f_color.b = clamp(f_color.b, 0.0, 1.0);
-
-    f_color = vec4(mix(dark_color, base_color, brightness), 1.0);
+	f_color = vec4(result, 1.0f);
 }
