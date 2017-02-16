@@ -86,7 +86,7 @@ impl System {
             if self.execute_turn() {
                 let one = self.game.turn_color();
                 let two = if one == Color::Black {Color::White} else {Color::Black};
-            
+
                 if self.game.was_captured() {
                     return Some(((two, self.from.unwrap(), self.to.unwrap()), Some((one, self.to.unwrap()))))
                 } else {

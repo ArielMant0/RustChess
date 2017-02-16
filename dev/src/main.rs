@@ -116,7 +116,7 @@ struct GraphicsEngine {
 }
 
 impl GraphicsEngine {
-    
+
     /*
     fn add_command_buffer(&mut self, cmd_buf: Vec<Arc<PrimaryCommandBuffer>>) {
         Arc::get_mut(&mut self.command_buffers).unwrap().push(cmd_buf);
@@ -126,10 +126,10 @@ impl GraphicsEngine {
     fn add_field_centers(&mut self, centers: Vec<cgmath::Point3<f32>>) {
         Arc::get_mut(&mut self.field_positions).unwrap().push(centers);
     }
-    
+
     fn set_camera_position(&mut self, pos: cgmath::Point3<f32>) {
         self.camera = pos;
-        
+
         match (pos.x, pos.y, pos.z) {
             (0.0, 5.0, 0.0) => self.uniform.view = cgmath::Matrix4::look_at(pos,
                                                    cgmath::Point3::new(0.0, 0.0, 0.0),
@@ -167,7 +167,7 @@ impl GraphicsEngine {
 
     fn delete_figure(&mut self, color: Color, pos: Position) {
         let at = System::from_position(&pos);
-        
+
         if color == Color::White {
             Arc::get_mut(&mut self.white_figures)
                 .unwrap()
@@ -293,15 +293,15 @@ impl GraphicsEngine {
                 .last_mut().unwrap().0.translate((1.5 - (i as f32 * 3.0), 0.1, 3.5));
         }
     }
-    
+
     fn update_command_buffers(&mut self,
         whites: &Vec<Model>,
         blacks: &Vec<Model>,
         pipeline: &Arc<GraphicsPipeline<vulkano::pipeline::vertex::TwoBuffersDefinition<data::Vertex, data::Normal>,
                        pipeline_layout::CustomPipeline,
                        renderpass::CustomRenderPass>>,
-        set: &Arc<pipeline_layout::set0::Set>, 
-        framebuffers: &Vec<Arc<Framebuffer<renderpass::CustomRenderPass>>>, 
+        set: &Arc<pipeline_layout::set0::Set>,
+        framebuffers: &Vec<Arc<Framebuffer<renderpass::CustomRenderPass>>>,
         renderpass: &Arc<renderpass::CustomRenderPass>)
     {
        let buffers = framebuffers.iter().map(|framebuffer| {
@@ -317,7 +317,7 @@ impl GraphicsEngine {
         let field_white = vs::ty::FigureColor{ col: cgmath::Vector3::new(1.0, 1.0, 1.0).into() };
         let white = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.8, 0.8, 0.8).into() };
         let black = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.25, 0.25, 0.25).into() };
-        
+
         let mut fields = Vec::new();
         for mut buf in buffers {
             for index in 0..whites.len() {
@@ -337,14 +337,14 @@ impl GraphicsEngine {
                                                   &self.white_figures[index].0.normal_buffer(&self.device, &self.queue)),
                                                   &self.white_figures[index].0.index_buffer(&self.device, &self.queue),
                                                   &vulkano::command_buffer::DynamicState::none(), set, &white);
-                
+
             }
             for index in 0..self.black_figures.len() {
                 buf = buf.draw_indexed(pipeline, (&self.black_figures[index].0.vertex_buffer(&self.device, &self.queue),
                                                   &self.black_figures[index].0.normal_buffer(&self.device, &self.queue)),
                                                   &self.black_figures[index].0.index_buffer(&self.device, &self.queue),
                                                   &vulkano::command_buffer::DynamicState::none(), set, &black);
-                
+
             }
             fields.push(buf.draw_end().build());
         }
@@ -565,7 +565,7 @@ fn main() {
         submissions.retain(|s| s.destroying_would_block());
 
         let image_num = graphics.swapchain.acquire_next_image(Duration::from_millis(1)).unwrap();
-        
+
         for index in 0..graphics.command_buffers.len() {
             submissions.push(vulkano::command_buffer::submit(&graphics.command_buffers[index][image_num], &graphics.queue).unwrap());
         }
@@ -592,7 +592,7 @@ fn main() {
                 winit::Event::MouseInput(winit::ElementState::Pressed, winit::MouseButton::Left) => {
                     if let Some(selection) = graphics.get_field(system.mouse()) {
                         system.set_selected(selection);
-                        // Now we update the figures command buffers to match what happened in the game                       
+                        // Now we update the figures command buffers to match what happened in the game
                         if let Some(result) = system.check_ready_and_play() {
                             graphics.move_figure((result.0).0, (result.0).1, (result.0).2);
                             if let Some(f) = result.1 {
