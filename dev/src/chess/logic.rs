@@ -492,3 +492,20 @@ impl Board {
         false
     }
 }
+
+impl ::std::clone::Clone for Board {
+    fn clone(&self) -> Self {
+        let mut f = HashMap::new();
+        for (&pos, field) in self.fields.iter() {
+            f.insert(pos, BoardField{ color: field.color, figure: field.figure });
+        }
+        Board{ fields: f }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.fields.clear();
+        for (&pos, field) in source.fields.iter() {
+            self.fields.insert(pos, BoardField{ color: field.color, figure: field.figure });
+        }
+    }
+}

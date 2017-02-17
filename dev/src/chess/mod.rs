@@ -22,6 +22,7 @@
 
 pub mod player;
 pub mod logic;
+pub mod ai;
 
 use self::player::{PlayerType, Player};
 use self::logic::{Color, Board, Position};
@@ -57,7 +58,7 @@ impl ChessGame {
         }
     }
 
-    pub fn do_turn(&mut self, from: Position, to: Position) -> bool {
+    pub fn do_turn(&mut self, before: Option<Position>, after: Option<Position>) -> bool {
 
         if !self.gameover {
             if self.board.checkmate(&mut self.player_one, &mut self.player_two) {
@@ -65,11 +66,26 @@ impl ChessGame {
                 println!("Game is over");
                 return false
             }
-
             let (mut attack, mut defend) = match self.turn {
                 true => (&mut self.player_one, &mut self.player_two),
                 false => (&mut self.player_two, &mut self.player_one)
             };
+            
+            let from;
+            let to;
+
+            if before.is_none() && after.is_none() {
+                if attack.ptype() != PlayerType::Human {
+                    let pos = attack.get_ai_move(&self.board, defend);
+                    from = pos.0;
+                    to = pos.1;
+                } else {
+                    return false
+                }
+            } else {
+                from = before.unwrap();
+                to = after.unwrap();
+            }
 
             let mut name = String::new();
             self.captured = false;

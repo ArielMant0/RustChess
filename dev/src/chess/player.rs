@@ -21,6 +21,8 @@
 // SOFTWARE.
 
 use std::collections::HashMap;
+
+use chess::ai::get_move;
 use chess::logic::{Color, Board, Figure, Position};
 
 pub const FIGURE_NAMES: &'static [&'static str] = &[
@@ -104,6 +106,14 @@ impl Player {
         self.color
     }
 
+    pub fn ptype(&self) -> PlayerType {
+        self.ptype
+    }
+
+    pub fn set_ptype(&mut self, p: PlayerType) {
+        self.ptype = p;
+    }
+
     pub fn figures(&self) -> HashMap<String, Vec<Position>> {
         self.figures.clone()
     }
@@ -111,7 +121,33 @@ impl Player {
     pub fn king(&self) -> Position {
         self.figures.get("king").unwrap()[0]
     }
+    
+    // Returns a vector of possible moves for all figures of the player
+    pub fn get_possible_moves(&self, board: &Board) -> Vec<(Position, Position)> {
+        let mut moves = Vec::new();
+        for (n, v) in self.figures.iter() {
+            for i in 0..v.len() {
+                for outer in 1..9 {
+                    for inner in 1..9 {
+                        if board.is_move_valid(v[i], Position::new(outer, inner)) {
+                            moves.push((v[i], Position::new(outer, inner)));
+                        }
+                    }
+                }
+            }
+        }
+        moves
+    }
+    
+    // If the player is not a human this returns a move
+    pub fn get_ai_move(&self, board: &Board, other: &Player) -> (Position, Position) {
+        if self.ptype != PlayerType::Human {
+            return get_move(board, self, other)
+        }
+        unreachable!()
+    }
 
+    // Move a figure
     pub fn move_figure(&mut self, before: Position, after: Position) {
         for mut v in self.figures.values_mut() {
             for i in 0..v.len() {
@@ -123,6 +159,7 @@ impl Player {
         }
     }
 
+    // Capture a figure
     pub fn capture(&mut self, pos: Position, name: String) {
         if let Some(mut positions) = self.figures.get_mut(&name) {
             for i in 0..positions.len() {
@@ -134,12 +171,14 @@ impl Player {
         }
     }
 
+    // Reverse a capture
     pub fn reverse_capture(&mut self, name: &str, pos: Position) {
         if let Some(mut v) = self.figures.get_mut(name) {
                 v.push(pos);
         }
     }
 
+    // Returns whether the king can be saved from checkmate in one move
     pub fn can_king_be_saved(&mut self, board: &mut Board, two: &Player) -> bool {
         for &elem in FIGURE_NAMES {
             let v = self.figures.get_mut(elem).unwrap();
@@ -179,5 +218,25 @@ impl Player {
             }
         }
         false
+    }
+}
+
+impl ::std::clone::Clone for Player {
+    fn clone(&self) -> Self {
+        let mut f = HashMap::new();
+        for (name, pos) in self.figures.iter() {
+            f.insert(name.clone(), pos.clone());
+        }
+        Player{ figures: f, color: self.color, ptype: self.ptype }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.figures.clear();
+        self.color = source.color;
+        self.ptype = source.ptype;
+
+        for (name, pos) in source.figures.iter() {
+            self.figures.insert(name.clone(), pos.clone());
+        }
     }
 }

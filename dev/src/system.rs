@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 use chess::logic::{Color, Position};
+use chess::player::PlayerType;
 use chess::ChessGame;
 
 pub struct System {
@@ -31,7 +32,8 @@ pub struct System {
     from: Option<Position>,
     to: Option<Position>,
     // Holds Board and Players
-    game: ChessGame
+    game: ChessGame,
+    ai: bool
 }
 
 impl System {
@@ -41,7 +43,8 @@ impl System {
             mouse_y: 0,
             from: None,
             to: None,
-            game: ChessGame::new()
+            game: ChessGame::new(),
+            ai: false
         }
     }
 
@@ -101,13 +104,52 @@ impl System {
 
     pub fn execute_turn(&mut self) -> bool {
         if self.game.board.is_move_valid(self.from.unwrap(), self.to.unwrap()) {
-            self.game.do_turn(self.from.unwrap(), self.to.unwrap())
+            self.game.do_turn(self.from, self.to)
         } else {
             false
         }
     }
 
+    pub fn execute_ai_turn(&mut self) -> Option<((Color, Position, Position), Option<(Color, Position)>)> {
+        if self.game.do_turn(None, None) {
+            let one = self.game.turn_color();
+            let two = if one == Color::Black {Color::White} else {Color::Black};
+
+            if self.game.was_captured() {
+                return Some(((two, self.from.unwrap(), self.to.unwrap()), Some((one, self.to.unwrap()))))
+            } else {
+                return Some(((two, self.from.unwrap(), self.to.unwrap()), None))
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn has_ai(&self) -> bool {
+        self.ai
+    }
+
     pub fn from_position(pos: &Position) -> ::cgmath::Point3<f32> {
         ::cgmath::Point3::new(4.5 - pos.x as f32, 0.1, 4.5 - pos.y as f32)
+    }
+
+    pub fn toggle_player_ai(&mut self, which: bool) {
+        if which {
+            if self.game.player_one.ptype() == PlayerType::Human {
+                self.game.player_one.set_ptype(PlayerType::Dumb);
+                self.ai = true;
+            } else {
+                self.game.player_one.set_ptype(PlayerType::Human);
+                self.ai = self.game.player_two.ptype() != PlayerType::Human;
+            }
+        } else {
+            if self.game.player_two.ptype() == PlayerType::Human {
+                self.game.player_two.set_ptype(PlayerType::Dumb);
+                self.ai = true;
+            } else {
+                self.game.player_two.set_ptype(PlayerType::Human);
+                self.ai = self.game.player_one.ptype() != PlayerType::Human;
+            }
+        }
     }
 }
