@@ -58,7 +58,56 @@ impl ChessGame {
         }
     }
 
-    pub fn do_turn(&mut self, before: Option<Position>, after: Option<Position>) -> bool {
+    pub fn do_ai_turn(&mut self) -> Option<(Position, Position)> {
+
+        if !self.gameover {
+            if self.board.checkmate(&mut self.player_one, &mut self.player_two) {
+                self.gameover = true;
+                println!("Game is over");
+                return None
+            }
+            let (mut attack, mut defend) = match self.turn {
+                true => (&mut self.player_one, &mut self.player_two),
+                false => (&mut self.player_two, &mut self.player_one)
+            };
+
+
+            let (from, to) = {
+                if attack.ptype() != PlayerType::Human {
+                    attack.get_ai_move(&mut self.board, defend)
+                } else {
+                    return None
+                }
+            };
+
+            let mut name = String::new();
+            self.captured = false;
+
+            if !self.board.is_empty(to) {
+                name = self.board.get_figure(to).unwrap().name();
+                defend.capture(to, name.clone());
+                self.captured = true;
+            }
+            self.board.move_figure(from, to);
+            attack.move_figure(from, to);
+
+            if !self.board.in_check(attack.king(), defend) {
+                self.turn = !self.turn;
+                return Some((from, to))
+            } else {
+                if self.captured {
+                    defend.reverse_capture(&name, to);
+                    self.captured = false;
+                }
+                self.board.move_figure(to, from);
+                attack.move_figure(to, from);
+                return None
+            }
+        }
+        None
+    }
+
+    pub fn do_turn(&mut self, from: Position, to: Position) -> bool {
 
         if !self.gameover {
             if self.board.checkmate(&mut self.player_one, &mut self.player_two) {
@@ -70,22 +119,6 @@ impl ChessGame {
                 true => (&mut self.player_one, &mut self.player_two),
                 false => (&mut self.player_two, &mut self.player_one)
             };
-            
-            let from;
-            let to;
-
-            if before.is_none() && after.is_none() {
-                if attack.ptype() != PlayerType::Human {
-                    let pos = attack.get_ai_move(&self.board, defend);
-                    from = pos.0;
-                    to = pos.1;
-                } else {
-                    return false
-                }
-            } else {
-                from = before.unwrap();
-                to = after.unwrap();
-            }
 
             let mut name = String::new();
             self.captured = false;

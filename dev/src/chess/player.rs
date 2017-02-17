@@ -22,7 +22,6 @@
 
 use std::collections::HashMap;
 
-use chess::ai::get_move;
 use chess::logic::{Color, Board, Figure, Position};
 
 pub const FIGURE_NAMES: &'static [&'static str] = &[
@@ -121,11 +120,11 @@ impl Player {
     pub fn king(&self) -> Position {
         self.figures.get("king").unwrap()[0]
     }
-    
+
     // Returns a vector of possible moves for all figures of the player
     pub fn get_possible_moves(&self, board: &Board) -> Vec<(Position, Position)> {
         let mut moves = Vec::new();
-        for (n, v) in self.figures.iter() {
+        for (_, v) in self.figures.iter() {
             for i in 0..v.len() {
                 for outer in 1..9 {
                     for inner in 1..9 {
@@ -138,11 +137,11 @@ impl Player {
         }
         moves
     }
-    
+
     // If the player is not a human this returns a move
-    pub fn get_ai_move(&self, board: &Board, other: &Player) -> (Position, Position) {
+    pub fn get_ai_move(&mut self, board: &mut Board, other: &mut Player) -> (Position, Position) {
         if self.ptype != PlayerType::Human {
-            return get_move(board, self, other)
+            return super::ai::get_move(board, self, other)
         }
         unreachable!()
     }

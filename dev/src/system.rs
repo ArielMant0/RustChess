@@ -102,23 +102,32 @@ impl System {
         None
     }
 
-    pub fn execute_turn(&mut self) -> bool {
+    fn execute_turn(&mut self) -> bool {
         if self.game.board.is_move_valid(self.from.unwrap(), self.to.unwrap()) {
-            self.game.do_turn(self.from, self.to)
+            self.game.do_turn(self.from.unwrap(), self.to.unwrap())
         } else {
             false
         }
     }
 
+    pub fn was_figure_captured(&self) -> bool {
+        self.game.was_captured()
+    }
+
+    pub fn reset_selection(&mut self) {
+        self.from = None;
+        self.to = None;
+    }
+
     pub fn execute_ai_turn(&mut self) -> Option<((Color, Position, Position), Option<(Color, Position)>)> {
-        if self.game.do_turn(None, None) {
+        if let Some((before, after)) = self.game.do_ai_turn() {
             let one = self.game.turn_color();
             let two = if one == Color::Black {Color::White} else {Color::Black};
 
             if self.game.was_captured() {
-                return Some(((two, self.from.unwrap(), self.to.unwrap()), Some((one, self.to.unwrap()))))
+                return Some(((two, before, after), Some((one, after))))
             } else {
-                return Some(((two, self.from.unwrap(), self.to.unwrap()), None))
+                return Some(((two, before, after), None))
             }
         } else {
             None
@@ -151,5 +160,7 @@ impl System {
                 self.ai = self.game.player_one.ptype() != PlayerType::Human;
             }
         }
+        self.from = None;
+        self.to = None;
     }
 }

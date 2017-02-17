@@ -223,8 +223,10 @@ impl Figure {
             2 => {
                 if to.x > from.x {
                     (from.x+1..to.x).all(|x| board.is_empty(Position::new(x, from.y)))
-                } else {
+                } else if to.x < from.x {
                     (to.x+1..from.x).all(|x| board.is_empty(Position::new(x, from.y)))
+                } else {
+                    false
                 }
             },
             _ => unreachable!()
@@ -350,8 +352,9 @@ impl Figure {
             clash = f != self.color;
         }
 
-        clash && (Figure::straight(board, from, to) ||
-        Figure::sideways(board, from, to) || Figure::diagonal(board, from, to))
+        clash && (Figure::straight(board, from, to) && !(Figure::sideways(board, from, to) || Figure::diagonal(board, from, to)))
+        && (Figure::sideways(board, from, to) && !(Figure::straight(board, from, to) || Figure::diagonal(board, from, to)))
+        && (Figure::diagonal(board, from, to) && !(Figure::straight(board, from, to) || Figure::sideways(board, from, to)))
     }
 }
 
