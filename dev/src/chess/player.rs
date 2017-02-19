@@ -21,14 +21,10 @@
 // SOFTWARE.
 
 use std::collections::HashMap;
-use chess::logic::{Color, Board, Figure, Position};
 
-pub const FIGURE_NAMES: &'static [&'static str] = &[
-    "king", "queen",
-    "bishop", "knight",
-    "rook", "pawn"
-];
+use chess::logic::{Color, Board, Position};
 
+/// Types the player can have
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PlayerType {
     Human,
@@ -36,15 +32,16 @@ pub enum PlayerType {
     Smart
 }
 
+/// The player
 #[derive(Debug)]
 pub struct Player {
     ptype: PlayerType,
     color: Color,
-    figures: HashMap<String, Vec<Position>>
+    pub figures: HashMap<String, Vec<Position>>
 }
 
 impl Player {
-    // Returns an instance of a Player with the given PlayerType
+    /// Returns an instance of a Player with the given PlayerType
     pub fn new(p: PlayerType, c: Color) -> Self {
         match c {
             Color::Black => Player::create_black_player(p, c),
@@ -52,66 +49,98 @@ impl Player {
         }
     }
 
+    /// Create a new black player
     fn create_black_player(p: PlayerType, c: Color) -> Self {
         let mut f = HashMap::with_capacity(16);
         let mut pos = Vec::new();
         // Pawns
-        for bla in 1..9 {
-            pos.push(Position::new(bla, 7))
+        for bla in 0..8 {
+            pos.push(Position::new(bla, 6))
         }
         f.insert("pawn".to_string(), pos);
         // King
-        f.insert("king".to_string(), vec![Position::new(5, 8)]);
+        f.insert("king".to_string(), vec![Position::new(4, 7)]);
         // Queen
-        f.insert("queen".to_string(), vec![Position::new(4, 8)]);
+        f.insert("queen".to_string(), vec![Position::new(3, 7)]);
         // Bishops
-        f.insert("bishop".to_string(), vec![Position::new(3, 8),
-                                            Position::new(6, 8)]);
+        f.insert("bishop".to_string(), vec![Position::new(2, 7), Position::new(5, 7)]);
         // Knights
-        f.insert("knight".to_string(), vec![Position::new(2, 8),
-                                            Position::new(7, 8)]);
+        f.insert("knight".to_string(), vec![Position::new(1, 7), Position::new(6, 7)]);
         // Rooks
-        f.insert("rook".to_string(), vec![Position::new(1, 8),
-                                          Position::new(8, 8)]);
+        f.insert("rook".to_string(), vec![Position::new(0, 7), Position::new(7, 7)]);
+
         Player { ptype: p, color: c, figures: f }
     }
 
+    /// Create a new white player
     fn create_white_player(p: PlayerType, c: Color) -> Self {
         let mut f = HashMap::with_capacity(16);
         let mut pos = Vec::new();
         // Pawns
-        for bla in 1..9 {
-            pos.push(Position::new(bla, 2))
+        for bla in 0..8 {
+            pos.push(Position::new(bla, 1))
         }
         f.insert("pawn".to_string(), pos);
         // King
-        f.insert("king".to_string(), vec![Position::new(5, 1)]);
+        f.insert("king".to_string(), vec![Position::new(4, 0)]);
         // Queen
-        f.insert("queen".to_string(), vec![Position::new(4, 1)]);
+        f.insert("queen".to_string(), vec![Position::new(3, 0)]);
         // Bishops
-        f.insert("bishop".to_string(), vec![Position::new(3, 1),
-                                            Position::new(6, 1)]);
+        f.insert("bishop".to_string(), vec![Position::new(2, 0), Position::new(5, 0)]);
         // Knights
-        f.insert("knight".to_string(), vec![Position::new(2, 1),
-                                            Position::new(7, 1)]);
+        f.insert("knight".to_string(), vec![Position::new(1, 0), Position::new(6, 0)]);
         // Rooks
-        f.insert("rook".to_string(), vec![Position::new(1, 1),
-                                          Position::new(8, 1)]);
+        f.insert("rook".to_string(), vec![Position::new(0, 0), Position::new(7, 0)]);
+
         Player { ptype: p, color: c, figures: f }
     }
 
+    /// Return player color
     pub fn color(&self) -> Color {
         self.color
     }
 
-    pub fn figures(&self) -> HashMap<String, Vec<Position>> {
-        self.figures.clone()
+    /// Return player type
+    pub fn ptype(&self) -> PlayerType {
+        self.ptype
     }
 
+    /// Set player type
+    pub fn set_ptype(&mut self, p: PlayerType) {
+        self.ptype = p;
+    }
+
+    /// Return the player's king which should always be there because one
+    /// cannot actually 'capture' a king
     pub fn king(&self) -> Position {
         self.figures.get("king").unwrap()[0]
     }
 
+    /// Returns a vector of possible moves for all figures of the player
+    pub fn get_possible_moves(&mut self, board: &mut Board, opponent: &mut Player) -> Vec<(Position, Position)> {
+        let mut moves = Vec::new();
+
+        for v in self.figures.values() {
+            for i in 0..v.len() {
+                for outer in 0..8 {
+                    for inner in 0..8 {
+                        let try = Position::new(inner, outer);
+                        if board.is_move_valid(v[i], try, &mut self.clone(), opponent) {
+                            moves.push((v[i], try));
+                        }
+                    }
+                }
+            }
+        }
+        moves
+    }
+
+    /// If the player is an AI this returns a valid move
+    pub fn get_ai_move(&self, board: &Board, other: &Player) -> (Position, Position) {
+        return super::ai::get_move(board, self, other);
+    }
+
+    /// Move a figure from 'before' to 'after'
     pub fn move_figure(&mut self, before: Position, after: Position) {
         for mut v in self.figures.values_mut() {
             for i in 0..v.len() {
@@ -121,63 +150,64 @@ impl Player {
                 }
             }
         }
+
+        unreachable!()
     }
 
-    pub fn capture(&mut self, pos: Position, name: String) {
+    /// Capture a figure
+    pub fn capture(&mut self, name: String, pos: Position) {
         if let Some(mut positions) = self.figures.get_mut(&name) {
             for i in 0..positions.len() {
                 if positions[i] == pos {
                     positions.remove(i);
-                    break;
+                    return
                 }
             }
         }
+
+        unreachable!()
     }
 
-    pub fn reverse_capture(&mut self, name: &str, pos: Position) {
-        if let Some(mut v) = self.figures.get_mut(name) {
-                v.push(pos);
+    /// Reverse a capture
+    pub fn reverse_capture(&mut self, name: String, pos: Position) {
+        if let Some(mut v) = self.figures.get_mut(&name) {
+            v.push(pos);
+        } else {
+            unreachable!()
         }
     }
 
-    pub fn can_king_be_saved(&mut self, board: &mut Board, two: &Player) -> bool {
-        for &elem in FIGURE_NAMES {
-            let v = self.figures.get_mut(elem).unwrap();
-            for pos in 0..v.len() {
-                let before = v[pos];
-                for i in 1..9 {
-                    for j in 1..9 {
-                        if board.is_move_valid(before, Position::new(i, j)) {
-                            let mut tmp = Figure::new();
-                            let mut reset = false;
-                            if !board.is_empty(Position::new(i, j)) {
-                                tmp = board.get_figure(Position::new(i, j))
-                                           .unwrap()
-                                           .as_figure(two.color());
-                                reset = true;
-                            }
-                            board.move_figure(before, Position::new(i, j));
-                            v[pos] = Position::new(i, j);
+    /// Returns whether the player's king can be saved from checkmate in one move
+    pub fn can_king_be_saved(&mut self, board: &mut Board, two: &mut Player) -> bool {
+        self.get_possible_moves(board, two).len() > 0
+    }
+}
 
-                            if !board.in_check(Position::new(i, j), two) {
-                                board.move_figure(Position::new(i, j), before);
-                                if reset {
-                                    board.set_figure(Position::new(i, j), tmp);
-                                }
-                                v[pos] = before;
-                                return true
-                            } else {
-                                board.move_figure(Position::new(i, j), before);
-                                if reset {
-                                    board.set_figure(Position::new(i, j), tmp);
-                                }
-                                v[pos] = before;
-                            }
-                        }
-                    }
-                }
-            }
+impl ::std::fmt::Display for Player {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        for (name, v) in self.figures.iter() {
+            try!(write!(f, "{}: {:?}\n", name, v));
         }
-        false
+        write!(f, "\n")
+    }
+}
+
+impl ::std::clone::Clone for Player {
+    fn clone(&self) -> Self {
+        let mut f = HashMap::new();
+        for (name, pos) in self.figures.iter() {
+            f.insert(name.clone(), pos.clone());
+        }
+        Player{ figures: f, color: self.color, ptype: self.ptype }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.figures.clear();
+        self.color = source.color;
+        self.ptype = source.ptype;
+
+        for (name, pos) in source.figures.iter() {
+            self.figures.insert(name.clone(), pos.clone());
+        }
     }
 }

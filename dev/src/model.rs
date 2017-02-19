@@ -81,6 +81,12 @@ impl Model {
                 Vertex{ position: (vec.x, vec.y, vec.z) }
             })
             .collect();
+        self.normals = self.normals.iter()
+                                   .map(|x| {
+                let vec = rotation.transform_point(Point3::new(x.normal.0, x.normal.1, x.normal.2));
+                Normal{ normal: (vec.x, vec.y, vec.z) }
+            })
+            .collect();
     }
 
 }

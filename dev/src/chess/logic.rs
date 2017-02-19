@@ -20,13 +20,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::hash::{Hash, Hasher};
-use std::collections::HashMap;
-
 use self::Color::*;
-use self::Id::*;
+use self::Figure::*;
 use chess::player::Player;
 
+/// Positions on the Board
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Position {
     pub x: u8,
@@ -34,22 +32,34 @@ pub struct Position {
 }
 
 impl Position {
+    /// Construct a new position, may only be a in range from 0 to 7 (inclusive)
     pub fn new(a: u8, b: u8) -> Self {
-        Position{ x: a, y: b }
+        if Position::is_pos(a, b) {
+            return Position{ x: a, y: b }
+        }
+
+        unreachable!()
+    }
+
+    /// Returns whether 'p' is a valid position
+    pub fn is_pos(a: u8, b: u8) -> bool {
+        match (a, b) {
+            (0...7, 0...7) => true,
+            _ => false
+        }
     }
 }
 
-impl ::std::cmp::Eq for Position {}
-
-impl Hash for Position {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.x.hash(state);
-        self.y.hash(state);
+impl ::std::fmt::Display for Position {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        // Needs match if more errors are possible
+        write!(f, "({}{})", self.x, self.x)
     }
 }
 
+/// Figures for all possible figures
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Id {
+pub enum Figure {
     King,
     Queen,
     Bishop,
@@ -58,140 +68,49 @@ pub enum Id {
     Pawn
 }
 
-impl Id {
-
-    pub fn as_figure(&self, c: Color) -> Figure {
-        match *self {
-            Id::King => Figure{ color: c, name: "king" },
-            Id::Queen => Figure{ color: c, name: "queen" },
-            Id::Rook => Figure{ color: c, name: "rook" },
-            Id::Knight => Figure{ color: c, name: "knight" },
-            Id::Bishop => Figure{ color: c, name: "bishop" },
-            Id::Pawn => Figure{ color: c, name: "pawn" }
-        }
+impl ::std::fmt::Display for Figure {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "{}", self.short())
     }
-
-    pub fn from_fig(n: &str) -> Self {
-        match n {
-            "king" => King,
-            "queen" => Queen,
-            "rook" => Rook,
-            "bishop" => Bishop,
-            "knight" => Knight,
-            "pawn" => Pawn,
-            _ => unreachable!()
-        }
-    }
-
-    pub fn name(&self) -> String {
-        match *self {
-            Id::King => String::from("king"),
-            Id::Queen => String::from("queen"),
-            Id::Rook => String::from("rook"),
-            Id::Knight => String::from("knight"),
-            Id::Bishop => String::from("bishop"),
-            Id::Pawn => String::from("pawn")
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub struct BoardField {
-    color: Color,
-    figure: Option<Id>
-}
-
-impl BoardField {
-
-    pub fn set_occupied(&mut self, f: Id, c: Color) {
-        self.figure = Some(f);
-        self.color = c;
-    }
-
-    pub fn get_field_color(pos: Position) -> Color {
-        match (pos.x, pos.y) {
-            (first @ 1...8, 1...8) if first % 2 == 1 => {
-                if pos.y % 2 == 0 {
-                    White
-                } else {
-                    Black
-                }
-            },
-            (first @ 1...8, 1...8) if first % 2 == 0 => {
-                if pos.y % 2 == 0 {
-                    Black
-                } else {
-                    White
-                }
-            },
-            _ => unreachable!()
-        }
-    }
-
-    pub fn set_empty(&mut self, pos: Position) {
-        self.figure = None;
-        self.color = BoardField::get_field_color(pos);
-    }
-
-    pub fn figure(&self) -> Option<Id> {
-        self.figure
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.figure.is_none()
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Color {
-    Black,
-    White
-}
-
-#[derive(Debug)]
-pub struct Figure {
-    color: Color,
-    name: &'static str,
 }
 
 impl Figure {
 
-    pub fn new() -> Self {
-        Figure{ name: "pawn", color: White}
-    }
-
-    pub fn valid_move(&self, board: &Board, from: Position, to: Position) -> bool {
-        match self.name {
-            "pawn" => self.pawn_move(board, from, to),
-            "bishop" => self.bishop_move(board, from, to),
-            "knight" => self.knight_move(board, from, to),
-            "rook" => self.rook_move(board, from, to),
-            "king" => self.king_move(board, from, to),
-            "queen" => self.queen_move(board, from, to),
-            _ => unreachable!(),
+    /// Check whether move is valid according to figure type
+    pub fn valid_move(&self, board: &Board, from: Position, to: Position, color: &Color) -> bool {
+        match *self {
+            Pawn => self.pawn_move(board, from, to, color),
+            Bishop => self.bishop_move(board, from, to, color),
+            Knight => self.knight_move(board, from, to, color),
+            Rook => self.rook_move(board, from, to, color),
+            King => self.king_move(board, from, to, color),
+            Queen => self.queen_move(board, from, to, color)
         }
     }
 
+    /// Returns whether the move's direction is straight
     fn straight(board: &Board, from: Position, to: Position) -> bool {
         from.x == to.x && Figure::way_is_clear(board, 0, from, to)
     }
 
+    /// Returns whether the move's direction is diagonal
     fn diagonal(board: &Board, from: Position, to: Position) -> bool {
-        (1u8..9).any(|x| {
+        (0u8..8).any(|x| {
             // right and up or down
-            Figure::way_is_clear(board, 1, from, to) &&
             ((from.x + x == to.x &&
             (from.y + x == to.y || from.y.checked_sub(x).is_some() && from.y - x == to.y)) ||
             // left and up or down
             (from.x.checked_sub(x).is_some() && from.x - x == to.x &&
             (from.y + x == to.y || from.y.checked_sub(x).is_some() && from.y - x == to.y)))
-        })
+        }) && Figure::way_is_clear(board, 1, from, to)
     }
 
+    /// Returns whether the move's direction is sideways
     fn sideways(board: &Board, from: Position, to: Position) -> bool {
         from.y == to.y && Figure::way_is_clear(board, 2, from, to)
     }
 
+    /// Returns whether there are no other figures in the way
     fn way_is_clear(board: &Board, direction: u8, from: Position, to: Position) -> bool {
         match direction {
             0 => {
@@ -209,13 +128,13 @@ impl Figure {
                     (1..diff).all(|x| board.is_empty(Position::new(from.x + x, from.y + x)))
                 } else if to.x > from.x && to.y < from.y {
                     let diff = to.x - from.x;
-                    (1..diff).all(|x| board.is_empty(Position::new(from.x + x, from.y - x)))
+                    (1..diff).all(|x| from.y.checked_sub(x).is_some() && board.is_empty(Position::new(from.x + x, from.y - x)))
                 } else if to.x < from.x && to.y > from.y {
                     let diff = from.x - to.x;
-                    (1..diff).all(|x| board.is_empty(Position::new(from.x - x, from.y + x)))
+                    (1..diff).all(|x| from.x.checked_sub(x).is_some() && board.is_empty(Position::new(from.x - x, from.y + x)))
                 } else if to.x < from.x && to.y < from.y {
                     let diff = from.x - to.x;
-                    (1..diff).all(|x| board.is_empty(Position::new(from.x - x, from.y - x)))
+                    (1..diff).all(|x| from.x.checked_sub(x).is_some() && board.is_empty(Position::new(from.x - x, from.y - x)))
                 } else {
                     false
                 }
@@ -223,22 +142,25 @@ impl Figure {
             2 => {
                 if to.x > from.x {
                     (from.x+1..to.x).all(|x| board.is_empty(Position::new(x, from.y)))
-                } else {
+                } else if to.x < from.x {
                     (to.x+1..from.x).all(|x| board.is_empty(Position::new(x, from.y)))
+                } else {
+                    false
                 }
             },
             _ => unreachable!()
         }
     }
 
-    fn pawn_move(&self, board: &Board, from: Position, to: Position) -> bool {
+    /// Tests if move is valid for a pawn
+    fn pawn_move(&self, board: &Board, from: Position, to: Position, color: &Color) -> bool {
         if board.is_empty(to) {
-            return match self.color {
-                Color::Black => {
+            return match *color {
+                Black => {
                     match (from.x, from.y) {
-                        (_, 7) => {
+                        (_, 6) => {
                             Figure::straight(board, from, to) &&
-                            (5..7).any(|x| x == to.y)
+                            (4..6).any(|x| x == to.y)
                         },
                         _ => {
                             Figure::straight(board, from, to) &&
@@ -249,9 +171,9 @@ impl Figure {
                 },
                 _ => {
                     match (from.x, from.y) {
-                        (_, 2) => {
+                        (_, 1) => {
                             Figure::straight(board, from, to) &&
-                            (3..5).any(|x| x == to.y)
+                            (2..4).any(|x| x == to.y)
                         },
                         _ => {
                             Figure::straight(board, from, to) &&
@@ -261,37 +183,41 @@ impl Figure {
                 }
             }
         } else {
-            board.get_figure_color(to).unwrap() != self.color &&
+            board.get_figure_color(to).unwrap() != *color && from.x.checked_sub(1).is_some() &&
             (from.x - 1 == to.x || from.x + 1 == to.x) &&
-            match self.color {
-                Color::Black => from.y - 1 == to.y,
+            match *color {
+                Black => from.y - 1 == to.y,
                 _ => from.y + 1 == to.y
             }
         }
     }
 
-    fn bishop_move(&self, board: &Board, from: Position, to: Position) -> bool {
-        let mut clash = true;
+    /// Tests if move is valid for a bishop
+    fn bishop_move(&self, board: &Board, from: Position, to: Position, color: &Color) -> bool {
+        let mut opposite = true;
         if let Some(f) = board.get_figure_color(to){
-            clash = f != self.color;
+            opposite = f != *color;
         }
 
-        clash && Figure::diagonal(board, from, to)
+        opposite && Figure::diagonal(board, from, to)
     }
 
-    fn rook_move(&self, board: &Board, from: Position, to: Position) -> bool {
-        let mut clash = true;
+    /// Tests if move is valid for a rook
+    fn rook_move(&self, board: &Board, from: Position, to: Position, color: &Color) -> bool {
+        let mut opposite = true;
         if let Some(f) = board.get_figure_color(to) {
-            clash = f != self.color;
+            opposite = f != *color;
         }
 
-        clash && (Figure::straight(board, from, to) || Figure::sideways(board, from, to))
+        opposite && ((Figure::straight(board, from, to) && !Figure::sideways(board, from, to))
+        || (!Figure::straight(board, from, to) && Figure::sideways(board, from, to)))
     }
 
-    fn knight_move(&self, board: &Board, from: Position, to: Position) -> bool {
-        let mut clash = true;
+    /// Tests if move is valid for a knight
+    fn knight_move(&self, board: &Board, from: Position, to: Position, color: &Color) -> bool {
+        let mut opposite = true;
         if let Some(f) = board.get_figure_color(to) {
-            clash = f != self.color;
+            opposite = f != *color;
         }
 
         let straight = {
@@ -314,20 +240,21 @@ impl Figure {
             }
         };
 
-        clash && (straight || sideways)
+        opposite && (straight || sideways)
     }
 
-    fn king_move(&self, board: &Board, from: Position, to: Position) -> bool {
-        let mut clash = true;
+    /// Tests if move is valid for a king
+    fn king_move(&self, board: &Board, from: Position, to: Position, color: &Color) -> bool {
+        let mut opposite = true;
         if let Some(f) = board.get_figure_color(to) {
-            clash = f != self.color;
+            opposite = f != *color;
         }
 
         let direction = {
-            //  forward or backward
+            // forward or backward
             if from.x == to.x {
                 from.y + 1 == to.y || (from.y.checked_sub(1).is_some() && from.y - 1 == to.y)
-            //  right or left
+            // right or left
             } else if from.y == to.y {
                 from.x + 1 == to.x || (from.x.checked_sub(1).is_some() && from.x - 1 == to.x)
             // diagonal right
@@ -341,154 +268,341 @@ impl Figure {
             }
         };
 
-        clash && direction
+        opposite && direction
     }
 
-    fn queen_move(&self, board: &Board, from: Position, to: Position) -> bool {
-        let mut clash = true;
+    /// Tests if move is valid for a queen
+    fn queen_move(&self, board: &Board, from: Position, to: Position, color: &Color) -> bool {
+        let mut opposite = true;
         if let Some(f) = board.get_figure_color(to) {
-            clash = f != self.color;
+            opposite = f != *color;
         }
 
-        clash && (Figure::straight(board, from, to) ||
-        Figure::sideways(board, from, to) || Figure::diagonal(board, from, to))
+        // Check only ONE of the possible directions is valid (TODO XOR in rust?)
+        opposite && ((Figure::straight(board, from, to) && !(Figure::sideways(board, from, to) || Figure::diagonal(board, from, to)))
+        || (Figure::sideways(board, from, to) && !(Figure::straight(board, from, to) || Figure::diagonal(board, from, to)))
+        || (Figure::diagonal(board, from, to) && !(Figure::straight(board, from, to) || Figure::sideways(board, from, to))))
+    }
+
+    /// Return whether the move does not put the player's king in check, which is not allowed in chess
+    fn not_suicide(board: &mut Board, active: &mut Player, inactive: &mut Player, from: Position, to: Position) -> bool {
+        let mut name = String::new();
+        let mut reverse = false;
+
+        // Check if there is another figure at 'to' and capture it if there is
+        if !board.is_empty(to) {
+            name =  board.get_figure(to).unwrap().name();
+            inactive.capture(name.clone(), to);
+            reverse = true;
+        }
+        // Move figure in board and active player
+        board.move_figure(from, to);
+        active.move_figure(from, to);
+
+        // If the active player's king is not in check return true
+        let good = !board.in_check(active.king(), inactive);
+
+        // Reverse move
+        board.move_figure(to, from);
+        active.move_figure(to, from);
+        // Reverse capture if it happened
+        if reverse {
+            inactive.reverse_capture(name.clone(), to);
+            board.set_figure(to, Figure::from_name(&name), inactive.color());
+        }
+
+        good
+    }
+
+    /// Constructs a figure from a name
+    pub fn from_name(n: &str) -> Self {
+        match n {
+            "rook" => Rook,
+            "queen" => Queen,
+            "king" => King,
+            "pawn" => Pawn,
+            "knight" => Knight,
+            "bishop" => Bishop,
+            _ => unreachable!()
+        }
+    }
+
+    /// Returns the figure's name
+    pub fn name(&self) -> String {
+        match *self {
+            King => String::from("king"),
+            Queen => String::from("queen"),
+            Rook => String::from("rook"),
+            Knight => String::from("knight"),
+            Bishop => String::from("bishop"),
+            Pawn => String::from("pawn")
+        }
+    }
+
+    /// Return the short version of a figure's name
+    fn short(&self) -> String {
+        match *self {
+            King => String::from("Ki"),
+            Queen => String::from("Qu"),
+            Rook => String::from("Ro"),
+            Knight => String::from("Kn"),
+            Bishop => String::from("Bi"),
+            Pawn => String::from("Pa")
+        }
     }
 }
 
-impl PartialEq for Figure {
-    fn eq(&self, other: &Figure) -> bool {
-        self.color == other.color && self.name == other.name
+/// Field on the Board
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub struct Field {
+    color: Color,
+    figure: Option<Figure>
+}
+
+/// Print a field, for debug purposes
+impl ::std::fmt::Display for Field {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        if self.is_empty() {
+            write!(f, "   ")
+        } else {
+            let c = if self.color == Color::White {'W'} else {'B'};
+            write!(f, "{}{}", c, self.figure.unwrap())
+        }
     }
 }
 
-#[derive(Debug)]
+impl Field {
+    /// Set a figure on this field
+    pub fn set_occupied(&mut self, f: Figure, c: Color) {
+        self.figure = Some(f);
+        self.color = c;
+    }
+
+    /// Get correct color for an empty field
+    pub fn get_field_color(pos: Position) -> Color {
+        if pos.x % 2 == 0 {
+            if pos.y % 2 == 1 {
+                White
+            } else {
+                Black
+            }
+        } else {
+            if pos.y % 2 == 0 {
+                White
+            } else {
+                Black
+            }
+        }
+    }
+
+    /// Remove figure from this field and update color
+    pub fn set_empty(&mut self, pos: Position) {
+        self.figure = None;
+        self.color = Field::get_field_color(pos);
+    }
+
+    /// Get this field's figure
+    pub fn get_figure(&self) -> Option<Figure> {
+        self.figure
+    }
+
+    /// Return whether this field is empty
+    pub fn is_empty(&self) -> bool {
+        self.figure.is_none()
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Color {
+    Black,
+    White
+}
+
+/// Overload '!' operator for comfort
+impl ::std::ops::Not for Color {
+    type Output = Self;
+
+    fn not(self) -> Self {
+        if self == White {
+            Black
+        } else {
+            White
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Board {
-    fields: HashMap<Position, BoardField>
+    fields: Vec<Vec<Field>>
 }
 
 impl Board {
-    /// return new board where every field is empty
+    /// Construct new board with standar figure positions
     pub fn new() -> Self {
-        let mut f = HashMap::with_capacity(64);
-        for outer in 1..9 {
-            for inner in 1..9 {
-                let _ = match (outer, inner) {
-                    a @ (_, 2) => f.insert(Position::new(a.0, a.1), BoardField{ color: White, figure: Some(Pawn)}),
-                    a @ (1, 1) => f.insert(Position::new(a.0, a.1), BoardField{ color: White, figure: Some(Rook)}),
-                    a @ (8, 1) => f.insert(Position::new(a.0, a.1), BoardField{ color: White, figure: Some(Rook)}),
-                    a @ (2, 1) => f.insert(Position::new(a.0, a.1), BoardField{ color: White, figure: Some(Knight)}),
-                    a @ (7, 1) => f.insert(Position::new(a.0, a.1), BoardField{ color: White, figure: Some(Knight)}),
-                    a @ (3, 1) => f.insert(Position::new(a.0, a.1), BoardField{ color: White, figure: Some(Bishop)}),
-                    a @ (6, 1) => f.insert(Position::new(a.0, a.1), BoardField{ color: White, figure: Some(Bishop)}),
-                    a @ (5, 1) => f.insert(Position::new(a.0, a.1), BoardField{ color: White, figure: Some(King)}),
-                    a @ (4, 1) => f.insert(Position::new(a.0, a.1), BoardField{ color: White, figure: Some(Queen)}),
-                    // Black figures
-                    a @ (_, 7) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Pawn)}),
-                    a @ (1, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Rook)}),
-                    a @ (8, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Rook)}),
-                    a @ (2, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Knight)}),
-                    a @ (7, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Knight)}),
-                    a @ (3, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Bishop)}),
-                    a @ (6, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Bishop)}),
-                    a @ (5, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(King)}),
-                    a @ (4, 8) => f.insert(Position::new(a.0, a.1), BoardField{ color: Black, figure: Some(Queen)}),
-                    _ => {
-                        let c = {
-                            if outer % 2 == 1 && inner % 2 == 0 || outer % 2 == 0 && inner % 2 == 1 {
-                                White
-                            } else {
-                                Black
-                            }
-                        };
-                        f.insert(Position::new(outer, inner), BoardField{ color: c, figure: None })
-                    }
-                };
+        let mut f = Vec::new();
+        for outer in 0u8..8 {
+            let mut nested = Vec::new();
+            for inner in 0u8..8 {
+                match (inner, outer) {
+                    // White Figures
+                    (_, 1) => nested.push(Field{ color: White, figure: Some(Pawn) }),
+                    (0, 0) => nested.push(Field{ color: White, figure: Some(Rook) }),
+                    (7, 0) => nested.push(Field{ color: White, figure: Some(Rook) }),
+                    (1, 0) => nested.push(Field{ color: White, figure: Some(Knight) }),
+                    (6, 0) => nested.push(Field{ color: White, figure: Some(Knight) }),
+                    (2, 0) => nested.push(Field{ color: White, figure: Some(Bishop) }),
+                    (5, 0) => nested.push(Field{ color: White, figure: Some(Bishop) }),
+                    (4, 0) => nested.push(Field{ color: White, figure: Some(King) }),
+                    (3, 0) => nested.push(Field{ color: White, figure: Some(Queen) }),
+                    // Black Figures
+                    (_, 6) => nested.push(Field{ color: Black, figure: Some(Pawn) }),
+                    (7, 7) => nested.push(Field{ color: Black, figure: Some(Rook) }),
+                    (0, 7) => nested.push(Field{ color: Black, figure: Some(Rook) }),
+                    (1, 7) => nested.push(Field{ color: Black, figure: Some(Knight) }),
+                    (6, 7) => nested.push(Field{ color: Black, figure: Some(Knight) }),
+                    (2, 7) => nested.push(Field{ color: Black, figure: Some(Bishop) }),
+                    (5, 7) => nested.push(Field{ color: Black, figure: Some(Bishop) }),
+                    (4, 7) => nested.push(Field{ color: Black, figure: Some(King) }),
+                    (3, 7) => nested.push(Field{ color: Black, figure: Some(Queen) }),
+                    // Empty Fields
+                    _ => nested.push(Field{ color: Field::get_field_color(Position::new(outer, inner)), figure: None }),
+                }
             }
+            f.push(nested);
         }
+
         Board{ fields: f }
     }
 
-    /// get the symbol of the board at position 'pos'
-    pub fn get_figure(&self, pos: Position) -> Option<Id> {
-        if let Some(f) = self.fields.get(&pos) {
-            return f.figure
+    /// Get the figure at position 'pos'
+    pub fn get_figure(&self, pos: Position) -> Option<Figure> {
+        self[pos].get_figure()
+    }
+
+    /// Check if move from 'from' to 'to' is valid
+    pub fn is_move_valid(&mut self, from: Position, to: Position, active: &mut Player, inactive: &mut Player) -> bool {
+        if let Some(fig) = self[from].get_figure() {
+            return fig.valid_move(self, from, to, &self[from].color) && Figure::not_suicide(self, active, inactive, from, to)
         }
+
+        // If we got here there was no figure at 'from' which should not be the case
         unreachable!()
     }
 
-    pub fn is_move_valid(&self, from: Position, to: Position) -> bool {
-        if let Some(pos) = self.fields.get(&from) {
-            if let Some(fig) = pos.figure() {
-                return fig.as_figure(self.get_figure_color(from).unwrap())
-                          .valid_move(self, from, to)
-            }
-        }
-        unreachable!()
+    /// Set a figure at position on the board
+    pub fn set_figure(&mut self, pos: Position, fig: Figure, col: Color) {
+        self[pos] = Field{ color: col, figure: Some(fig) };
     }
 
-    pub fn set_figure(&mut self, pos: Position, fig: Figure) {
-        self.fields.insert(pos,
-            BoardField{ color: fig.color, figure: Some(Id::from_fig(fig.name)) });
-    }
-
-    /// get the Color of the figure at position 'pos'
+    /// Get the color of the figure at position 'pos'
     pub fn get_figure_color(&self, pos: Position) -> Option<Color> {
-        if let Some(f) = self.fields.get(&pos) {
-            if self.is_empty(pos) {
-                return None
-            } else {
-                return Some(f.color)
-            }
+        if self.is_empty(pos) {
+            None
+        } else {
+            return Some(self[pos].color)
         }
-        unreachable!()
     }
 
-    /// move a figure on the board
+    /// Tests whether a move results in a capture
+    pub fn is_capture_move(&self, from: Position, to: Position) -> bool {
+        !self[to].is_empty() && self[to].color != self[from].color
+    }
+
+    /// Move a figure on the board
     pub fn move_figure(&mut self, before: Position, after: Position) {
-        let col = self.fields.get(&before).unwrap().color;
-        let tmp = self.fields.get(&before).unwrap().figure.unwrap();
+        let col = self[before].color;
+        let tmp = self[before].get_figure().unwrap();
 
-        if let Some(f) = self.fields.get_mut(&before) {
-            f.set_empty(before);
-        }
-
-        if let Some(x) = self.fields.get_mut(&after) {
-            x.set_occupied(tmp, col);
-        }
+        // Set new positions on the board
+        self[before].set_empty(before);
+        self[after].set_occupied(tmp, col);
     }
 
-    /// return whether field at pos is empty or not
+    /// Return whether field at position 'pos' is empty or not
     pub fn is_empty(&self, pos: Position) -> bool {
-        self.fields.get(&pos).unwrap().is_empty()
+        self[pos].is_empty()
     }
 
+    /// Return whether King at Position 'king' is in check
     pub fn in_check(&self, king: Position, opponent: &Player) -> bool {
-        if opponent.figures().values().any(|pos|
-        {
-            for p in pos {
-                if self.fields.get(&p).unwrap()
-                                      .figure
-                                      .unwrap()
-                                      .as_figure(opponent.color())
-                                      .valid_move(self, *p, king)
-                {
-                    return true
-                }
-            }
-            false
-        }) { true } else { false}
+
+        // For all figures of the opponent check whether
+        // they can make a valid move to the king's position
+        opponent.figures
+                .values()
+                .any(|pos| {
+                    pos.iter().any(|&x|
+                        if let Some(tmp) = self[x].get_figure() {
+                            tmp.valid_move(self, x, king, &opponent.color())
+                        } else {
+                            unreachable!()
+                        })
+                })
     }
 
-    /// return wether one if the players' has won or a king is just in check
+    /// Return wether a king is in checkmate
     pub fn checkmate(&mut self, one: &mut Player, two: &mut Player) -> bool {
+        // Check if first king is in checkmate
         if self.in_check(one.king(), two) {
             return !one.can_king_be_saved(self, two)
         }
 
+        // Check if second king is in checkmate
         if self.in_check(two.king(), one) {
             return !two.can_king_be_saved(self, one)
         }
 
         false
+    }
+}
+
+/// Implement indexing with positions for ease of use
+impl ::std::ops::Index<Position> for Board {
+    type Output = Field;
+
+    fn index(&self, pos: Position) -> &Self::Output {
+        &self.fields[pos.y as usize][pos.x as usize]
+    }
+}
+
+impl ::std::ops::IndexMut<Position> for Board {
+
+    fn index_mut(&mut self, pos: Position) -> &mut Self::Output {
+        &mut self.fields[pos.y as usize][pos.x as usize]
+    }
+}
+
+/// Implement indexing with u8-tuples for ease of use
+impl ::std::ops::Index<(u8, u8)> for Board {
+    type Output = Field;
+
+    fn index(&self, pos: (u8, u8)) -> &Self::Output {
+        &self.fields[pos.1 as usize][pos.0 as usize]
+    }
+}
+
+impl ::std::ops::IndexMut<(u8, u8)> for Board {
+
+    fn index_mut(&mut self, pos: (u8, u8)) -> &mut Self::Output {
+        &mut self.fields[pos.1 as usize][pos.0 as usize]
+    }
+}
+
+impl ::std::fmt::Display for Board {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        try!(write!(f, "  | a | b | c | d | e | f | g | h |\n"));
+        try!(write!(f, "--|---|---|---|---|---|---|---|---|--\n"));
+        for outer in (0u8..8).rev() {
+            try!(write!(f, "{} |{}|{}|{}|{}|{}|{}|{}|{}| \n", outer + 1,
+                self[(0, outer)],
+                self[(1, outer)],
+                self[(2, outer)],
+                self[(3, outer)],
+                self[(4, outer)],
+                self[(5, outer)],
+                self[(6, outer)],
+                self[(7, outer)]));
+        }
+        write!(f, "--|---|---|---|---|---|---|---|---|--\n")
     }
 }
