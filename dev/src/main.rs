@@ -39,16 +39,8 @@ extern crate vulkano_win;
 
 use vulkano_win::VkSurfaceBuild;
 
-use cgmath::{SquareMatrix, InnerSpace, Transform};
-
 use std::sync::Arc;
 use std::time::Duration;
-
-use vulkano::device::{Device, Queue};
-use vulkano::swapchain::{Swapchain};
-use vulkano::pipeline::{GraphicsPipeline};
-use vulkano::framebuffer::{Framebuffer};
-use vulkano::command_buffer::{PrimaryCommandBuffer};
 
 mod vs { include!{concat!(env!("OUT_DIR"), "/shaders/src/bin/chess_vs.glsl")} }
 mod fs { include!{concat!(env!("OUT_DIR"), "/shaders/src/bin/chess_fs.glsl")} }
@@ -57,10 +49,11 @@ mod data;
 mod model;
 mod chess;
 mod system;
+mod graphics;
 
 use model::Model;
 use system::System;
-use chess::logic::{Color, Position};
+use graphics::{GraphicsEngine, Matrices};
 
 mod renderpass {
    single_pass_renderpass!{
@@ -95,327 +88,8 @@ mod pipeline_layout {
     }
 }
 
-struct Matrices {
-    pub world: cgmath::Matrix4<f32>,
-    pub view: cgmath::Matrix4<f32>,
-    pub proj: cgmath::Matrix4<f32>
-}
-
-struct GraphicsEngine {
-    device: Arc<Device>,
-    queue: Arc<Queue>,
-    swapchain: Arc<Swapchain>,
-    command_buffers: Arc<Vec<Vec<Arc<PrimaryCommandBuffer>>>>,
-    field_positions: Arc<Vec<Vec<cgmath::Point3<f32>>>>,
-    white_figures: Arc<Vec<(Model, cgmath::Point3<f32>)>>,
-    black_figures: Arc<Vec<(Model, cgmath::Point3<f32>)>>,
-    uniform: Matrices,
-    screenwidth: u32,
-    screenheight: u32,
-    camera: cgmath::Point3<f32>
-}
-
-impl GraphicsEngine {
-
-    /*
-    fn add_command_buffer(&mut self, cmd_buf: Vec<Arc<PrimaryCommandBuffer>>) {
-        Arc::get_mut(&mut self.command_buffers).unwrap().push(cmd_buf);
-    }
-    */
-
-    fn add_field_centers(&mut self, centers: Vec<cgmath::Point3<f32>>) {
-        Arc::get_mut(&mut self.field_positions).unwrap().push(centers);
-    }
-
-    fn set_camera_position(&mut self, pos: cgmath::Point3<f32>) {
-        self.camera = pos;
-
-        match (pos.x, pos.y, pos.z) {
-            (0.0, 5.5, 0.0) => self.uniform.view = cgmath::Matrix4::look_at(pos,
-                                                   cgmath::Point3::new(0.0, 0.0, 0.0),
-                                                   cgmath::Vector3::new(0.0, 0.0, 1.0)),
-            (4.0, 0.6, 0.0) => self.uniform.view = cgmath::Matrix4::look_at(pos,
-                                                   cgmath::Point3::new(0.0, 0.0, 0.0),
-                                                   cgmath::Vector3::new(0.0, -1.0, 0.0)),
-            _ => unreachable!()
-        }
-    }
-
-    fn move_figure(&mut self, color: Color, from: Position, to: Position) {
-        if color == Color::White {
-            for mut f in Arc::get_mut(&mut self.white_figures).unwrap() {
-                if f.1 == System::from_position(&from) {
-                    f.1 = System::from_position(&to);
-                    let xdir = f.1.x - System::from_position(&from).x;
-                    let zdir = f.1.z - System::from_position(&from).z;
-                    // println!("translating white figure by {}, 0.0, {}", xdir, zdir);
-                    (f.0).translate((xdir, 0.0, zdir));
-                }
-            }
-        } else {
-            for mut f in Arc::get_mut(&mut self.black_figures).unwrap() {
-                if f.1 == System::from_position(&from) {
-                    f.1 = System::from_position(&to);
-                    let xdir = f.1.x - System::from_position(&from).x;
-                    let zdir = f.1.z - System::from_position(&from).z;
-                    // println!("translating black figure by {}, 0.0, {}", xdir, zdir);
-                    (f.0).translate((xdir, 0.0, zdir));
-                }
-            }
-        }
-    }
-
-    fn delete_figure(&mut self, color: Color, pos: Position) {
-        let at = System::from_position(&pos);
-
-        if color == Color::White {
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .retain(|f| f.1 != at);
-        } else {
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .retain(|f| f.1 != at);
-        }
-    }
-
-    fn init_figures(&mut self) {
-        for i in 0..8 {
-            // Black Pawns
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .push((Model::from_data(&data::pawn::VERTICES, &data::pawn::NORMALS, &data::pawn::INDICES),
-                       cgmath::Point3::new(i as f32 - 3.5, 0.1, -2.5)));
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .last_mut().unwrap().0.translate((i as f32 - 3.5, 0.1, -2.5));
-            // White Pawns
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .push((Model::from_data(&data::pawn::VERTICES, &data::pawn::NORMALS, &data::pawn::INDICES),
-                       cgmath::Point3::new(i as f32 - 3.5, 0.1, 2.5)));
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .last_mut().unwrap().0.translate((i as f32 - 3.5, 0.1, 2.5));
-        }
-        // Black King
-        Arc::get_mut(&mut self.black_figures)
-            .unwrap()
-            .push((Model::from_data(&data::king::VERTICES, &data::king::NORMALS, &data::king::INDICES),
-                   cgmath::Point3::new(-0.5, 0.1, -3.5)));
-        Arc::get_mut(&mut self.black_figures)
-            .unwrap()
-            .last_mut().unwrap().0.translate((-0.5, 0.1, -3.5));
-        // White King
-        Arc::get_mut(&mut self.white_figures)
-            .unwrap()
-            .push((Model::from_data(&data::king::VERTICES, &data::king::NORMALS, &data::king::INDICES),
-                   cgmath::Point3::new(-0.5, 0.1, 3.5)));
-        Arc::get_mut(&mut self.white_figures)
-            .unwrap()
-            .last_mut().unwrap().0.translate((-0.5, 0.1, 3.5));
-
-        // Black Queen
-        Arc::get_mut(&mut self.black_figures)
-            .unwrap()
-            .push((Model::from_data(&data::queen::VERTICES, &data::queen::NORMALS, &data::queen::INDICES),
-                   cgmath::Point3::new(0.5, 0.1, -3.5)));
-        Arc::get_mut(&mut self.black_figures)
-            .unwrap()
-            .last_mut().unwrap().0.translate((0.5, 0.1, -3.5));
-        // White Queen
-        Arc::get_mut(&mut self.white_figures)
-            .unwrap()
-            .push((Model::from_data(&data::queen::VERTICES, &data::queen::NORMALS, &data::queen::INDICES),
-                   cgmath::Point3::new(0.5, 0.1, 3.5)));
-        Arc::get_mut(&mut self.white_figures)
-            .unwrap()
-            .last_mut().unwrap().0.translate((0.5, 0.1, 3.5));
-
-        for i in 0..2 {
-            // Black Knight
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .push((Model::from_data(&data::knight::VERTICES, &data::knight::NORMALS, &data::knight::INDICES),
-                       cgmath::Point3::new(-2.5 + (i as f32 * 5.0), 0.1, -3.5)));
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .last_mut().unwrap().0
-                .rotate_around_y(90.0);
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .last_mut().unwrap().0
-                .translate((-2.5 + (i as f32 * 5.0), 0.1, -3.5));
-            // White Knight
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .push((Model::from_data(&data::knight::VERTICES, &data::knight::NORMALS, &data::knight::INDICES),
-                       cgmath::Point3::new(2.5 - (i as f32 * 5.0), 0.1, 3.5)));
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .last_mut().unwrap().0
-                .rotate_around_y(-90.0);
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .last_mut().unwrap().0
-                .translate((2.5 - (i as f32 * 5.0), 0.1, 3.5));
-            // Black Rook
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .push((Model::from_data(&data::rook::VERTICES, &data::rook::NORMALS, &data::rook::INDICES),
-                       cgmath::Point3::new(-3.5 + (i as f32 * 7.0), 0.1, -3.5)));
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .last_mut().unwrap().0.translate((-3.5 + (i as f32 * 7.0), 0.1, -3.5));
-            // White Rook
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .push((Model::from_data(&data::rook::VERTICES, &data::rook::NORMALS, &data::rook::INDICES),
-                       cgmath::Point3::new(3.5 - (i as f32 * 7.0), 0.1, 3.5)));
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .last_mut().unwrap().0.translate((3.5 - (i as f32 * 7.0), 0.1, 3.5));
-            // Black Bishop
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .push((Model::from_data(&data::bishop::VERTICES, &data::bishop::NORMALS, &data::bishop::INDICES),
-                       cgmath::Point3::new(-1.5 + (i as f32 * 3.0), 0.1, -3.5)));
-            Arc::get_mut(&mut self.black_figures)
-                .unwrap()
-                .last_mut().unwrap().0.translate((-1.5 + (i as f32 * 3.0), 0.1, -3.5));
-            // White Bishop
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .push((Model::from_data(&data::bishop::VERTICES, &data::bishop::NORMALS, &data::bishop::INDICES),
-                       cgmath::Point3::new(1.5 - (i as f32 * 3.0), 0.1, 3.5)));
-            Arc::get_mut(&mut self.white_figures)
-                .unwrap()
-                .last_mut().unwrap().0.translate((1.5 - (i as f32 * 3.0), 0.1, 3.5));
-        }
-    }
-
-    fn update_command_buffers(&mut self,
-        whites: &Vec<Model>,
-        blacks: &Vec<Model>,
-        pipeline: &Arc<GraphicsPipeline<vulkano::pipeline::vertex::TwoBuffersDefinition<data::Vertex, data::Normal>,
-                       pipeline_layout::CustomPipeline,
-                       renderpass::CustomRenderPass>>,
-        set: &Arc<pipeline_layout::set0::Set>,
-        framebuffers: &Vec<Arc<Framebuffer<renderpass::CustomRenderPass>>>,
-        renderpass: &Arc<renderpass::CustomRenderPass>)
-    {
-       let buffers = framebuffers.iter().map(|framebuffer| {
-        vulkano::command_buffer::PrimaryCommandBufferBuilder::new(&self.device, self.queue.family())
-            .draw_inline(renderpass, &framebuffer, renderpass::ClearValues {
-                 //color: [0.827, 0.827, 0.827],
-                 color: [0.690, 0.769, 0.871],
-                 depth: 1.0,
-             })
-        }).collect::<Vec<_>>();
-
-        let field_black = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.0, 0.0, 0.0).into() };
-        let field_white = vs::ty::FigureColor{ col: cgmath::Vector3::new(1.0, 1.0, 1.0).into() };
-        let white = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.9, 0.9, 0.9).into() };
-        let black = vs::ty::FigureColor{ col: cgmath::Vector3::new(0.15, 0.15, 0.15).into() };
-
-        let mut fields = Vec::new();
-        for mut buf in buffers {
-            for index in 0..whites.len() {
-                buf = buf.draw_indexed(pipeline, (&whites[index].vertex_buffer(&self.device, &self.queue),
-                                                  &whites[index].normal_buffer(&self.device, &self.queue)),
-                                                  &whites[index].index_buffer(&self.device, &self.queue),
-                                                  &vulkano::command_buffer::DynamicState::none(), set, &field_white);
-            }
-            for index in 0..blacks.len() {
-                buf = buf.draw_indexed(pipeline, (&blacks[index].vertex_buffer(&self.device, &self.queue),
-                                                  &blacks[index].normal_buffer(&self.device, &self.queue)),
-                                                  &blacks[index].index_buffer(&self.device, &self.queue),
-                                                  &vulkano::command_buffer::DynamicState::none(), set, &field_black);
-            }
-            for index in 0..self.white_figures.len() {
-                buf = buf.draw_indexed(pipeline, (&self.white_figures[index].0.vertex_buffer(&self.device, &self.queue),
-                                                  &self.white_figures[index].0.normal_buffer(&self.device, &self.queue)),
-                                                  &self.white_figures[index].0.index_buffer(&self.device, &self.queue),
-                                                  &vulkano::command_buffer::DynamicState::none(), set, &white);
-
-            }
-            for index in 0..self.black_figures.len() {
-                buf = buf.draw_indexed(pipeline, (&self.black_figures[index].0.vertex_buffer(&self.device, &self.queue),
-                                                  &self.black_figures[index].0.normal_buffer(&self.device, &self.queue)),
-                                                  &self.black_figures[index].0.index_buffer(&self.device, &self.queue),
-                                                  &vulkano::command_buffer::DynamicState::none(), set, &black);
-
-            }
-            fields.push(buf.draw_end().build());
-        }
-        let cmd = Arc::get_mut(&mut self.command_buffers).unwrap();
-        cmd.clear();
-        cmd.push(fields);
-    }
-
-    fn get_field(&self, mouse: (i32, i32)) -> Option<(u8, u8)> {
-        let mut x = (( 2.0 * mouse.0 as f32) / self.screenwidth as f32) - 1.0;
-        let mut y = (((2.0 * mouse.1 as f32) / self.screenheight as f32) - 1.0) * -1.0;
-
-        x = x / self.uniform.proj.x.x;
-        y = y / self.uniform.proj.y.y;
-
-        if let Some(inverse) = self.uniform.view.invert() {
-            let direction = cgmath::Vector3{ x: (x * inverse.x.x) + (y * inverse.y.x) + inverse.z.x,
-                                             y: (x * inverse.x.y) + (y * inverse.y.y) + inverse.z.y,
-                                             z: (x * inverse.x.z) + (y * inverse.y.z) + inverse.z.z };
-
-            for i in 0..self.field_positions.len() {
-                for index in 0..self.field_positions[i].len() {
-                    let mut world = self.uniform.world.clone();
-                    let translation = cgmath::Matrix4::from_translation(cgmath::Vector3 {
-                                                            x: self.field_positions[i][index].x,
-                                                            y: self.field_positions[i][index].y,
-                                                            z: self.field_positions[i][index].z
-                                                          });
-                    world = world * translation;
-
-                    let inverse_world = world.invert().unwrap();
-                    let mut ray_direction = inverse_world.transform_vector(direction.normalize());
-                    ray_direction = ray_direction.normalize();
-                    let ray_origin = inverse_world.transform_point(self.camera);
-
-                    if GraphicsEngine::ray_intersect(&ray_origin, &ray_direction) {
-                        return Some(self.map_field_positions(i, index))
-                    }
-                }
-            }
-        } else {
-            println!("Could not invert view matrix");
-            return None
-        }
-        None
-    }
-
-    fn map_field_positions(&self, i: usize, j: usize) -> (u8, u8) {
-        //if self.camera == cgmath::Point3::new(0.0, 5.5, 0.0) {
-            (((self.field_positions[i][j].x + 5.0) as i32) as u8,
-            ((5.0 - self.field_positions[i][j].z) as i32) as u8)
-        /*}
-        else {
-            (((9 - (self.field_positions[i][j].x + 5.0) as i32) as i32) as u8,
-            ((5.0 - self.field_positions[i][j].z) as i32) as u8)
-        }*/
-    }
-
-    fn ray_intersect(origin: &cgmath::Point3<f32>, direction: &cgmath::Vector3<f32>) -> bool {
-        // TODO: Plane intersection test
-        let a = (direction.x * direction.x) + (direction.y * direction.y) + (direction.z * direction.z);
-        let b = ((direction.x * origin.x) + (direction.y * origin.y) + (direction.z * origin.z)) * 2.0;
-        let c = ((origin.x * origin.x) + (origin.y * origin.y) + (origin.z * origin.z)) - (0.5 * 0.5);
-
-        let discriminant = (b*b) - (4.0 * a * c);
-
-        return discriminant > 0.0
-    }
-}
-
 fn main() {
+    // Set up lots of stuff ... see vulkano examples
     let extensions = vulkano_win::required_extensions();
     let instance = vulkano::instance::Instance::new(None, &extensions, None).expect("failed to create instance");
 
@@ -458,7 +132,6 @@ fn main() {
 
     let proj = cgmath::perspective(cgmath::Rad(std::f32::consts::FRAC_PI_2),
                                   { let d = images[0].dimensions(); d[0] as f32 / d[1] as f32 }, 0.01, 100.0);
-    //let proj = cgmath::ortho(-15.0, 15.0, 15.0, -15.0, 0.01, 100.0);
     let camera = cgmath::Point3::new(0.0, 5.5, 0.0);
     let view = cgmath::Matrix4::look_at(camera, cgmath::Point3::new(0.0, 0.0, 0.0), cgmath::Vector3::new(0.0, 0.0, 1.0));
 
@@ -521,6 +194,7 @@ fn main() {
         vulkano::framebuffer::Framebuffer::new(&renderpass, [image.dimensions()[0], image.dimensions()[1], 1], attachments).unwrap()
     }).collect::<Vec<_>>();
 
+    // Initialize chess fields and store their positions
     let mut white_fields = Vec::new();
     let mut black_fields = Vec::new();
     let mut white_centers = Vec::new();
@@ -545,6 +219,7 @@ fn main() {
 
     let mut submissions: Vec<Arc<vulkano::command_buffer::Submission>> = Vec::new();
 
+    // Construct graphics object
     let mut graphics = GraphicsEngine{ device: device,
                                        queue: queue,
                                        swapchain: swapchain,
@@ -566,8 +241,10 @@ fn main() {
     graphics.init_figures();
     graphics.update_command_buffers(&white_fields, &black_fields, &pipeline, &set, &framebuffers, &renderpass);
 
+    // Construct communicator between game and graphics
     let mut system = System::new();
 
+    // Render loop
     loop {
         submissions.retain(|s| s.destroying_would_block());
 
@@ -578,28 +255,35 @@ fn main() {
         }
         graphics.swapchain.present(&graphics.queue, image_num).unwrap();
 
+        // If there is an AI, let it make a move and update figures
         if system.has_ai() {
             if let Some(result) = system.execute_ai_turn() {
-                let mut deleted = false;
                 graphics.move_figure((result.0).0, (result.0).1, (result.0).2);
-                if let Some(f) = result.1 {
-                    graphics.delete_figure(f.0, f.1);
-                    deleted = true;
+                if result.1 {
+                    graphics.delete_figure(!((result.0).0), (result.0).2);
                 }
-                println!("AI move was: {:?}, {:?}, deleted: {:?}, -- {:?}", (result.0).1, (result.0).2, deleted, system.was_figure_captured());
                 graphics.update_command_buffers(&white_fields, &black_fields, &pipeline, &set, &framebuffers, &renderpass);
+                std::thread::sleep(std::time::Duration::from_millis(250));
             }
         }
 
+        // Window events
         for ev in window.window().poll_events() {
             match ev {
+                // Window was closed
                 winit::Event::Closed => return,
+                // Keyboard input
                 winit::Event::KeyboardInput(winit::ElementState::Pressed, _, Some(the_key)) => {
                     match the_key {
+                        // On escape, reset the selection in system
                         winit::VirtualKeyCode::Escape => system.reset_selection(),
+                        // Toggle black player AI
                         winit::VirtualKeyCode::Q => system.toggle_player_ai(false),
+                        // Toggle white player AI
                         winit::VirtualKeyCode::W => system.toggle_player_ai(true),
-                        _ => if the_key == winit::VirtualKeyCode::Key1 || the_key == winit::VirtualKeyCode::Key2 {
+                        // Set camera position and update view matrix
+                        _ =>
+                        if the_key == winit::VirtualKeyCode::Key1 || the_key == winit::VirtualKeyCode::Key2 {
                             let (cam, up) = {
                                 if the_key == winit::VirtualKeyCode::Key1 {
                                     (cgmath::Point3::new(4.0, 0.6, 0.0), cgmath::Vector3::new(0.0, -1.0, 0.0))
@@ -622,13 +306,12 @@ fn main() {
                 // If a figure was selected, set position as selected in System
                 winit::Event::MouseInput(winit::ElementState::Pressed, winit::MouseButton::Left) => {
                     if let Some(selection) = graphics.get_field(system.mouse()) {
-                        //println!("{:?} ", selection);
                         system.set_selected(selection);
-                        // Now we update the figures command buffers to match what happened in the game
+                        // If two selections were made try to execute a turn and update graphics according to the turn
                         if let Some(result) = system.check_ready_and_play() {
                             graphics.move_figure((result.0).0, (result.0).1, (result.0).2);
-                            if let Some(f) = result.1 {
-                                graphics.delete_figure(f.0, f.1);
+                            if result.1 {
+                                graphics.delete_figure(!((result.0).0), (result.0).2);
                             }
                             graphics.update_command_buffers(&white_fields, &black_fields, &pipeline, &set, &framebuffers, &renderpass);
                         }

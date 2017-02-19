@@ -1,8 +1,0 @@
-[package]
-name = "chess"
-version = "0.1.0"
-authors = ["Franziska Becker <buecher.apps@gmail.com>, René Warnking <rwarnking@gmail.com>"]
-
-[dependencies]
-clap = "2.20.0"
-rand = "0.3.15"
