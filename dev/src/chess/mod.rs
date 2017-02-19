@@ -28,28 +28,23 @@ use self::player::{PlayerType, Player};
 use self::logic::{Color, Board, Position};
 
 pub struct ChessGame {
-    pub player_one: Player,
-    pub player_two: Player,
+    pub white_player: Player,
+    pub black_player: Player,
     pub board: Board,
     pub turn: bool,
-    pub gameover: bool,
-    pub captured: bool
+    pub gameover: bool
 }
 
 impl ChessGame {
     pub fn new() -> Self {
-        ChessGame{ player_one: Player::new(PlayerType::Human, Color::White),
-                   player_two: Player::new(PlayerType::Human, Color::Black),
+        ChessGame{ white_player: Player::new(PlayerType::Human, Color::White),
+                   black_player: Player::new(PlayerType::Human, Color::Black),
                    board: Board::new(),
                    turn: true,
-                   gameover: false,
-                   captured: false }
+                   gameover: false }
     }
 
-    pub fn was_captured(&self) -> bool {
-        self.captured
-    }
-
+    /// Returns the color of the player whose turn it is
     pub fn turn_color(&self) -> Color {
         if self.turn {
             Color::White
@@ -58,92 +53,91 @@ impl ChessGame {
         }
     }
 
-    pub fn do_ai_turn(&mut self) -> Option<(Position, Position)> {
+    /// Makes the move from 'from' to 'to' and return whether a figure was captured
+    fn make_move(&mut self, from: Position, to: Position) -> bool {
+        let mut captured = false;
+        if self.turn {
+            // If a figure is at 'to' capture it and set flag
+            if !self.board.is_empty(to) {
+                let name = self.board[to].get_figure().unwrap().name();
+                self.black_player.capture(name.clone(), to);
+                captured = true;
+            }
+            // Move figure(s) in board and player
+            self.board.move_figure(from, to);
+            self.white_player.move_figure(from, to);
+        } else {
+            // If a figure is at 'to' capture it and set flag
+            if !self.board.is_empty(to) {
+                let name = self.board[to].get_figure().unwrap().name();
+                self.white_player.capture(name.clone(), to);
+                captured = true;
+            }
+            // Move figure(s) in board and player
+            self.board.move_figure(from, to);
+            self.black_player.move_figure(from, to);
+        }
+        self.turn = !self.turn;
+        captured
+    }
+
+    /// Makes a turn using the AI
+    pub fn do_ai_turn(&mut self) -> Option<((Position, Position), bool)> {
 
         if !self.gameover {
-            if self.board.checkmate(&mut self.player_one, &mut self.player_two) {
+            if self.board.checkmate(&mut self.white_player, &mut self.black_player) {
                 self.gameover = true;
                 println!("Game is over");
                 return None
             }
-            let (mut attack, mut defend) = match self.turn {
-                true => (&mut self.player_one, &mut self.player_two),
-                false => (&mut self.player_two, &mut self.player_one)
-            };
 
-
-            let (from, to) = {
-                if attack.ptype() != PlayerType::Human {
-                    attack.get_ai_move(&mut self.board, defend)
-                } else {
-                    return None
+            let (from , to) = match self.turn {
+                true => {
+                    if self.white_player.ptype() != PlayerType::Human {
+                        self.white_player.get_ai_move(&self.board, &self.black_player)
+                    } else {
+                        return None
+                    }
+                },
+                false => {
+                    if self.black_player.ptype() != PlayerType::Human {
+                        self.black_player.get_ai_move(&self.board, &self.white_player)
+                    } else {
+                        return None
+                    }
                 }
             };
 
-            let mut name = String::new();
-            self.captured = false;
-
-            if !self.board.is_empty(to) {
-                name = self.board.get_figure(to).unwrap().name();
-                defend.capture(to, name.clone());
-                self.captured = true;
-            }
-            self.board.move_figure(from, to);
-            attack.move_figure(from, to);
-
-            if !self.board.in_check(attack.king(), defend) {
-                self.turn = !self.turn;
-                return Some((from, to))
-            } else {
-                if self.captured {
-                    defend.reverse_capture(&name, to);
-                    self.captured = false;
-                }
-                self.board.move_figure(to, from);
-                attack.move_figure(to, from);
-                return None
-            }
+            return Some(((from, to), self.make_move(from , to)))
         }
         None
     }
 
-    pub fn do_turn(&mut self, from: Position, to: Position) -> bool {
+    /// Makes a turn based on player input
+    pub fn do_turn(&mut self, from: Position, to: Position) -> i8 {
 
         if !self.gameover {
-            if self.board.checkmate(&mut self.player_one, &mut self.player_two) {
+            if self.board.checkmate(&mut self.white_player, &mut self.black_player) {
                 self.gameover = true;
                 println!("Game is over");
-                return false
+                return -1
             }
-            let (mut attack, mut defend) = match self.turn {
-                true => (&mut self.player_one, &mut self.player_two),
-                false => (&mut self.player_two, &mut self.player_one)
+
+            let result = match self.turn {
+                true => self.board.is_move_valid(from, to, &mut self.white_player, &mut self.black_player),
+                false => self.board.is_move_valid(from, to, &mut self.black_player, &mut self.white_player)
             };
 
-            let mut name = String::new();
-            self.captured = false;
-
-            if !self.board.is_empty(to) {
-                name = self.board.get_figure(to).unwrap().name();
-                defend.capture(to, name.clone());
-                self.captured = true;
-            }
-            self.board.move_figure(from, to);
-            attack.move_figure(from, to);
-
-            if !self.board.in_check(attack.king(), defend) {
-                self.turn = !self.turn;
-                return true
-            } else {
-                if self.captured {
-                    defend.reverse_capture(&name, to);
-                    self.captured = false;
+            if result {
+                if self.make_move(from, to) {
+                    return 1
+                } else {
+                    return 0
                 }
-                self.board.move_figure(to, from);
-                attack.move_figure(to, from);
-                return false
+            } else {
+                return -1
             }
         }
-        false
+        -1
     }
 }

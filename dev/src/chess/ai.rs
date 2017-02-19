@@ -1,103 +1,79 @@
 extern crate rand;
 
-use chess::logic::{Id, Board, Position};
+use chess::logic::{Figure, Board, Position};
 use chess::player::{Player, PlayerType};
 
 use self::rand::{thread_rng, Rng};
 
-/// Returns a move for the AI, depending on which one it is.
-pub fn get_move(board: &mut Board, me: &mut Player, other: &mut Player) -> (Position, Position) {
+/// Returns a move for the AI, depending on which one it is
+pub fn get_move(board: &Board, me: &Player, other: &Player) -> (Position, Position) {
+
     // If AI is stupid
     if me.ptype() != PlayerType::Smart {
-        get_dumb_move(board, me, other)
+        get_dumb_move(&mut board.clone(), &mut me.clone(), &mut other.clone())
     // If AI is smart
     } else {
         get_smart_move(board.clone(), me.clone(), other.clone())
     }
 }
 
-fn figure_value(fig: Id) -> u8 {
-    match fig {
-        Id::King => 100,
-        Id::Queen => 80,
-        Id::Bishop | Id::Knight => 50,
-        Id::Rook => 25,
-        Id::Pawn => 10
+/// Returns the measure of a figure's value
+fn figure_value(fig: &Figure) -> u8 {
+    match *fig {
+        Figure::King => 100,
+        Figure::Queen => 80,
+        Figure::Bishop | Figure::Knight => 50,
+        Figure::Rook => 25,
+        Figure::Pawn => 10
     }
 }
 
-// freesounds.org
-
+/// Returns a random move in 'moves'
 fn random_move(moves: &Vec<(Position, Position)>) -> (Position, Position) {
     let mut rng = thread_rng();
     let index = rng.gen_range(0, moves.len());
+
     moves[index]
 }
 
-/// Returns a dumb move.
+/// Returns a dumb move
 fn get_dumb_move(board: &mut Board, me: &mut Player, other: &mut Player) -> (Position, Position) {
-    let my_moves = me.get_possible_moves(board);
-    let mut tmp_board = board.clone();
-    let mut tmp_other = other.clone();
+    let my_moves = me.get_possible_moves(board, other);
 
-    if let Some(at) = my_moves.iter()
-                     .filter(|&x| move_is_good(x.clone(), &mut tmp_board, me, &mut tmp_other))
-                     .max_by_key(|x| {
-                        if !board.is_empty(x.1) &&
-                            board.get_figure_color(x.1).unwrap() == other.color()
-                        {
-                            (figure_value(board.get_figure(x.1).unwrap()))
-                        } else {
-                            0
-                        }})
-    {
-
+    if let Some(at) = my_moves.iter().max_by_key(|x| capture_and_evade(board, x)) {
         if board.is_empty(at.1) {
             return random_move(&my_moves)
         } else {
             return *at
         }
-    } else {
-        unreachable!()
     }
+
+    // If we got here than there is no valid move to make, which should not happen
+    // because then this function should not be called in the first place
+    unreachable!()
 }
 
-fn move_is_good(pos: (Position, Position), board: &mut Board, me: &mut Player, other: &mut Player) -> bool {
-    let from = pos.0;
-    let to = pos.1;
 
-    let mut name = String::new();
-    let mut reverse = false;
-
-    if !board.is_empty(to) {
-        name = board.get_figure(to).unwrap().name();
-        other.capture(to, name.clone());
-        reverse = true;
-    }
-    board.move_figure(from, to);
-    me.move_figure(from, to);
-
-    if !board.in_check(me.king(), other) {
-        if reverse {
-            other.reverse_capture(&name, to);
-        }
-        board.move_figure(to, from);
-        me.move_figure(to, from);
-        return true
+/// Return a measure that tries to capture opponent figures and evade being captured
+fn capture_and_evade(board: &Board, pos: &(Position, Position)) -> u8 {
+    if board.is_capture_move(pos.0, pos.1) {
+        figure_value(&board.get_figure(pos.1).unwrap())
     } else {
-        if reverse {
-            other.reverse_capture(&name, to);
-        }
-        board.move_figure(to, from);
-        me.move_figure(to, from);
-        return false
+        0
     }
+
+    // TODO: implement evasion
+    /*let ev = {
+        let b = board.clone();
+
+    };*/
 }
 
+/// Chooses a smart AI move
 #[allow(dead_code, unused_variables)]
 fn get_smart_move(board: Board, me: Player, other: Player) -> (Position, Position) {
-    //let my_moves = me.get_possible_moves();
-    //let opp_moves = other.get_possible_moves();
+    // TODO: implement this (minimax?)
 
     (Position::new(1, 1), Position::new(1, 2))
 }
+
