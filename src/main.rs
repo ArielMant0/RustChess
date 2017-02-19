@@ -262,6 +262,9 @@ fn main() {
                 if result.1 {
                     graphics.delete_figure(!((result.0).0), (result.0).2);
                 }
+                if system.upgrade_needed() {
+                    graphics.upgrade_pawn(system.upgrade().unwrap());
+                }
                 graphics.update_command_buffers(&white_fields, &black_fields, &pipeline, &set, &framebuffers, &renderpass);
                 std::thread::sleep(std::time::Duration::from_millis(250));
             }
@@ -312,6 +315,9 @@ fn main() {
                             graphics.move_figure((result.0).0, (result.0).1, (result.0).2);
                             if result.1 {
                                 graphics.delete_figure(!((result.0).0), (result.0).2);
+                            }
+                            if system.upgrade_needed() {
+                                graphics.upgrade_pawn(system.upgrade().unwrap());
                             }
                             graphics.update_command_buffers(&white_fields, &black_fields, &pipeline, &set, &framebuffers, &renderpass);
                         }

@@ -112,6 +112,27 @@ impl GraphicsEngine {
         }
     }
 
+    /// Change the model of a pawn that was upgraded
+    pub fn upgrade_pawn(&mut self, up: (Color, Position)) {
+        if up.0 == Color::White {
+            for mut f in Arc::get_mut(&mut self.white_figures).unwrap() {
+                let at = System::from_position(&up.1);
+                if f.1 == at {
+                    f.0 = Model::from_data(&queen::VERTICES, &queen::NORMALS, &queen::INDICES);
+                    f.0.translate((at.x, 0.1, -3.5));
+                }
+            }
+        } else {
+            for mut f in Arc::get_mut(&mut self.black_figures).unwrap() {
+                let at = System::from_position(&up.1);
+                if f.1 == at {
+                    f.0 = Model::from_data(&queen::VERTICES, &queen::NORMALS, &queen::INDICES);
+                    f.0.translate((at.x, 0.1, 3.5));
+                }
+            }
+        }
+    }
+
     /// Delete a figure
     pub fn delete_figure(&mut self, color: Color, pos: Position) {
         let at = System::from_position(&pos);
@@ -370,4 +391,3 @@ impl GraphicsEngine {
         return discriminant > 0.0
     }
 }
-

@@ -1,7 +1,7 @@
 [package]
-name = "dev"
+name = "rust_chess"
 version = "0.1.1"
-authors = ["Franziska Becker <buecher.apps@gmail.com>"]
+authors = ["Franziska Becker <buecher.apps@gmail.com>", "Rene Warnking <rwarnking@gmail.com>"]
 build = "build.rs"
 
 [dependencies]

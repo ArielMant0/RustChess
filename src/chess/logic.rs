@@ -155,7 +155,7 @@ impl Figure {
     /// Tests if move is valid for a pawn
     fn pawn_move(&self, board: &Board, from: Position, to: Position, color: &Color) -> bool {
         if board.is_empty(to) {
-            return match *color {
+            match *color {
                 Black => {
                     match (from.x, from.y) {
                         (_, 6) => {
@@ -183,10 +183,10 @@ impl Figure {
                 }
             }
         } else {
-            board.get_figure_color(to).unwrap() != *color && from.x.checked_sub(1).is_some() &&
-            (from.x - 1 == to.x || from.x + 1 == to.x) &&
+            board.get_figure_color(to).unwrap() != *color &&
+            (from.x + 1 == to.x || (from.x.checked_sub(1).is_some() && from.x - 1 == to.x)) &&
             match *color {
-                Black => from.y - 1 == to.y,
+                Black => from.y.checked_sub(1).is_some() && from.y - 1 == to.y,
                 _ => from.y + 1 == to.y
             }
         }
@@ -282,36 +282,6 @@ impl Figure {
         opposite && ((Figure::straight(board, from, to) && !(Figure::sideways(board, from, to) || Figure::diagonal(board, from, to)))
         || (Figure::sideways(board, from, to) && !(Figure::straight(board, from, to) || Figure::diagonal(board, from, to)))
         || (Figure::diagonal(board, from, to) && !(Figure::straight(board, from, to) || Figure::sideways(board, from, to))))
-    }
-
-    /// Return whether the move does not put the player's king in check, which is not allowed in chess
-    fn not_suicide(board: &mut Board, active: &mut Player, inactive: &mut Player, from: Position, to: Position) -> bool {
-        let mut name = String::new();
-        let mut reverse = false;
-
-        // Check if there is another figure at 'to' and capture it if there is
-        if !board.is_empty(to) {
-            name =  board.get_figure(to).unwrap().name();
-            inactive.capture(name.clone(), to);
-            reverse = true;
-        }
-        // Move figure in board and active player
-        board.move_figure(from, to);
-        active.move_figure(from, to);
-
-        // If the active player's king is not in check return true
-        let good = !board.in_check(active.king(), inactive);
-
-        // Reverse move
-        board.move_figure(to, from);
-        active.move_figure(to, from);
-        // Reverse capture if it happened
-        if reverse {
-            inactive.reverse_capture(name.clone(), to);
-            board.set_figure(to, Figure::from_name(&name), inactive.color());
-        }
-
-        good
     }
 
     /// Constructs a figure from a name
@@ -482,11 +452,41 @@ impl Board {
     /// Check if move from 'from' to 'to' is valid
     pub fn is_move_valid(&mut self, from: Position, to: Position, active: &mut Player, inactive: &mut Player) -> bool {
         if let Some(fig) = self[from].get_figure() {
-            return fig.valid_move(self, from, to, &self[from].color) && Figure::not_suicide(self, active, inactive, from, to)
+            return fig.valid_move(self, from, to, &self[from].color) &&
+                   !self.simulate_check(from, to, active, inactive, true)
         }
 
         // If we got here there was no figure at 'from' which should not be the case
         unreachable!()
+    }
+
+    pub fn simulate_check(&mut self, from: Position, to: Position, active: &mut Player, inactive: &mut Player, king: bool) -> bool {
+        let mut reverse = false;
+        let mut name = String::new();
+
+        // Check if there is another figure at 'to' and capture it if there is
+        if !self.is_empty(to) {
+            name =  self.get_figure(to).unwrap().name();
+            inactive.capture(name.clone(), to);
+            reverse = true;
+        }
+        // Move figure in board and active player
+        self.move_figure(from, to);
+        active.move_figure(from, to);
+
+        // If the active player's king/figure is not in check return true
+        let result = if king {self.in_check(active.king(), inactive)} else {self.in_check(to, inactive)};
+
+        // Reverse move
+        self.move_figure(to, from);
+        active.move_figure(to, from);
+        // Reverse capture if it happened
+        if reverse {
+            inactive.reverse_capture(name.clone(), to);
+            self.set_figure(to, Figure::from_name(&name), inactive.color());
+        }
+
+        result
     }
 
     /// Set a figure at position on the board
@@ -590,7 +590,7 @@ impl ::std::ops::IndexMut<(u8, u8)> for Board {
 
 impl ::std::fmt::Display for Board {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        try!(write!(f, "  | a | b | c | d | e | f | g | h |\n"));
+        try!(write!(f, "\n  | a | b | c | d | e | f | g | h |\n"));
         try!(write!(f, "--|---|---|---|---|---|---|---|---|--\n"));
         for outer in (0u8..8).rev() {
             try!(write!(f, "{} |{}|{}|{}|{}|{}|{}|{}|{}| \n", outer + 1,

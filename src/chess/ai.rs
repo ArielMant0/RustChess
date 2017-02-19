@@ -18,12 +18,12 @@ pub fn get_move(board: &Board, me: &Player, other: &Player) -> (Position, Positi
 }
 
 /// Returns the measure of a figure's value
-fn figure_value(fig: &Figure) -> u8 {
+fn figure_value(fig: &Figure) -> i32 {
     match *fig {
-        Figure::King => 100,
-        Figure::Queen => 80,
-        Figure::Bishop | Figure::Knight => 50,
-        Figure::Rook => 25,
+        Figure::King => 500,
+        Figure::Queen => 100,
+        Figure::Rook => 50,
+        Figure::Bishop | Figure::Knight => 25,
         Figure::Pawn => 10
     }
 }
@@ -40,11 +40,15 @@ fn random_move(moves: &Vec<(Position, Position)>) -> (Position, Position) {
 fn get_dumb_move(board: &mut Board, me: &mut Player, other: &mut Player) -> (Position, Position) {
     let my_moves = me.get_possible_moves(board, other);
 
-    if let Some(at) = my_moves.iter().max_by_key(|x| capture_and_evade(board, x)) {
-        if board.is_empty(at.1) {
+    let move_values: Vec<(i32, (Position, Position))> = my_moves.iter()
+                                                                .map(|x| (capture_and_evade(board, x, me, other), *x))
+                                                                .collect();
+
+    if let Some(at) = move_values.iter().max_by_key(|x| x.0) {
+        if at.0 == 0 {
             return random_move(&my_moves)
         } else {
-            return *at
+            return at.1
         }
     }
 
@@ -55,18 +59,24 @@ fn get_dumb_move(board: &mut Board, me: &mut Player, other: &mut Player) -> (Pos
 
 
 /// Return a measure that tries to capture opponent figures and evade being captured
-fn capture_and_evade(board: &Board, pos: &(Position, Position)) -> u8 {
-    if board.is_capture_move(pos.0, pos.1) {
-        figure_value(&board.get_figure(pos.1).unwrap())
-    } else {
-        0
-    }
+fn capture_and_evade(board: &mut Board, pos: &(Position, Position), active: &mut Player, inactive: &mut Player) -> i32 {
+    let capture = {
+        if board.is_capture_move(pos.0, pos.1) {
+            figure_value(&board.get_figure(pos.1).unwrap())
+        } else {
+            0
+        }
+    };
 
-    // TODO: implement evasion
-    /*let ev = {
-        let b = board.clone();
+    let evade = {
+        if board.simulate_check(pos.0, pos.1, active, inactive, false) {
+            (figure_value(&board.get_figure(pos.0).unwrap()) * -1) + 1
+        } else {
+            0
+        }
+    };
 
-    };*/
+    capture + evade
 }
 
 /// Chooses a smart AI move
@@ -76,4 +86,3 @@ fn get_smart_move(board: Board, me: Player, other: Player) -> (Position, Positio
 
     (Position::new(1, 1), Position::new(1, 2))
 }
-

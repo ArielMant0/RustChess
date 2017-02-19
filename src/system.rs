@@ -34,7 +34,8 @@ pub struct System {
     to: Option<Position>,
     // Holds Board and Players
     game: ChessGame,
-    ai: bool
+    ai: bool,
+    upgrade: Option<(Color, Position)>
 }
 
 impl System {
@@ -45,7 +46,8 @@ impl System {
             from: None,
             to: None,
             game: ChessGame::new(),
-            ai: false
+            ai: false,
+            upgrade: None
         }
     }
 
@@ -93,6 +95,7 @@ impl System {
     /// If two fields have been selected execute a turn an return the positions which need to be updates visually
     pub fn check_ready_and_play(&mut self) -> Option<((Color, Position, Position), bool)> {
         if self.from.is_some() && self.to.is_some() {
+            self.reset_upgrade();
             let result = self.game.do_turn(self.from.unwrap(), self.to.unwrap());
             if result >= 0 {
                 // We need to take the opposite color of the one who's turn it is now
@@ -103,7 +106,11 @@ impl System {
                 let after = self.to.unwrap();
                 self.reset_selection();
 
-                return Some(((turn_color, before, after), result == 1))
+                if result == 1 || result == 3 {
+                    self.upgrade = Some((turn_color, after));
+                }
+
+                return Some(((turn_color, before, after), result >= 2))
             } else {
                 return None
             }
@@ -117,12 +124,26 @@ impl System {
         self.to = None;
     }
 
+    /// Reset field selections
+    pub fn reset_upgrade(&mut self) {
+        self.upgrade = None;
+    }
+
+    pub fn upgrade(&self) -> Option<(Color, Position)> {
+        self.upgrade
+    }
+
     /// Execute a turn for the AI
     pub fn execute_ai_turn(&mut self) -> Option<((Color, Position, Position), bool)> {
-        if let Some(((before, after), captured)) = self.game.do_ai_turn() {
+        self.reset_upgrade();
+        if let Some(((before, after), (captured, upgrade))) = self.game.do_ai_turn() {
             // We need to take the opposite color of the one who's turn it is now
             // because our turn has already been made
             let turn_color = !self.game.turn_color();
+
+            if upgrade {
+                self.upgrade = Some((turn_color, after));
+            }
 
             return Some(((turn_color, before, after), captured))
         }
@@ -132,6 +153,11 @@ impl System {
     /// Returns whether an AI is active
     pub fn has_ai(&self) -> bool {
         self.ai
+    }
+
+    /// Returns whether an pawn needs to be updated to a queen
+    pub fn upgrade_needed(&self) -> bool {
+        self.upgrade.is_some()
     }
 
     /// Transforms a board position to a field position in the world

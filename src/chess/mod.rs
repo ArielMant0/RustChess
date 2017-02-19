@@ -25,7 +25,7 @@ pub mod logic;
 pub mod ai;
 
 use self::player::{PlayerType, Player};
-use self::logic::{Color, Board, Position};
+use self::logic::{Color, Board, Position, Figure};
 
 pub struct ChessGame {
     pub white_player: Player,
@@ -54,14 +54,21 @@ impl ChessGame {
     }
 
     /// Makes the move from 'from' to 'to' and return whether a figure was captured
-    fn make_move(&mut self, from: Position, to: Position) -> bool {
+    fn make_move(&mut self, from: Position, to: Position) -> (bool, bool) {
         let mut captured = false;
+        let mut upgrade = false;
         if self.turn {
             // If a figure is at 'to' capture it and set flag
             if !self.board.is_empty(to) {
                 let name = self.board[to].get_figure().unwrap().name();
                 self.black_player.capture(name.clone(), to);
                 captured = true;
+            }
+            // If a pawn moved to the end of the board make it a queen
+            if to.y == 7 && self.board.get_figure(from).unwrap() == Figure::Pawn {
+                self.board.set_figure(from, Figure::Queen, Color::White);
+                self.white_player.upgrade_pawn(from);
+                upgrade = true;
             }
             // Move figure(s) in board and player
             self.board.move_figure(from, to);
@@ -73,16 +80,22 @@ impl ChessGame {
                 self.white_player.capture(name.clone(), to);
                 captured = true;
             }
+            // If a pawn moved to the end of the board make it a queen
+            if to.y == 0 && self.board.get_figure(from).unwrap() == Figure::Pawn {
+                self.board.set_figure(from, Figure::Queen, Color::Black);
+                self.black_player.upgrade_pawn(from);
+                upgrade = true;
+            }
             // Move figure(s) in board and player
             self.board.move_figure(from, to);
             self.black_player.move_figure(from, to);
         }
         self.turn = !self.turn;
-        captured
+        (captured, upgrade)
     }
 
     /// Makes a turn using the AI
-    pub fn do_ai_turn(&mut self) -> Option<((Position, Position), bool)> {
+    pub fn do_ai_turn(&mut self) -> Option<((Position, Position), (bool, bool))> {
 
         if !self.gameover {
             if self.board.checkmate(&mut self.white_player, &mut self.black_player) {
@@ -129,10 +142,11 @@ impl ChessGame {
             };
 
             if result {
-                if self.make_move(from, to) {
-                    return 1
-                } else {
-                    return 0
+                return match self.make_move(from, to) {
+                    (true, true) => 3,
+                    (true, false) => 2,
+                    (false, true) => 1,
+                    (false, false) => 0
                 }
             } else {
                 return -1

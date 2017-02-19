@@ -37,6 +37,7 @@ pub enum PlayerType {
 pub struct Player {
     ptype: PlayerType,
     color: Color,
+    castling: [bool; 3],
     pub figures: HashMap<String, Vec<Position>>
 }
 
@@ -69,7 +70,7 @@ impl Player {
         // Rooks
         f.insert("rook".to_string(), vec![Position::new(0, 7), Position::new(7, 7)]);
 
-        Player { ptype: p, color: c, figures: f }
+        Player { ptype: p, color: c, figures: f, castling: [true, true, true] }
     }
 
     /// Create a new white player
@@ -92,7 +93,7 @@ impl Player {
         // Rooks
         f.insert("rook".to_string(), vec![Position::new(0, 0), Position::new(7, 0)]);
 
-        Player { ptype: p, color: c, figures: f }
+        Player { ptype: p, color: c, figures: f, castling: [true, true, true] }
     }
 
     /// Return player color
@@ -108,6 +109,20 @@ impl Player {
     /// Set player type
     pub fn set_ptype(&mut self, p: PlayerType) {
         self.ptype = p;
+    }
+
+    pub fn upgrade_pawn(&mut self, pos: Position) {
+        self.capture("pawn".to_string(), pos);
+
+        let mut found = false;
+        if let Some(mut positions) = self.figures.get_mut("queen") {
+            positions.push(pos);
+            found = true;
+        }
+
+        if !found {
+            self.figures.insert("queen".to_string(), vec![pos]);
+        }
     }
 
     /// Return the player's king which should always be there because one
@@ -156,24 +171,37 @@ impl Player {
 
     /// Capture a figure
     pub fn capture(&mut self, name: String, pos: Position) {
+        let mut delete = false;
+
         if let Some(mut positions) = self.figures.get_mut(&name) {
             for i in 0..positions.len() {
-                if positions[i] == pos {
+                if positions[i] == pos && positions.len() > 1 {
                     positions.remove(i);
-                    return
+                    break;
+                } else if positions[i] == pos {
+                    delete = true;
+                    break;
                 }
             }
+        } else {
+            unreachable!()
         }
 
-        unreachable!()
+        if delete {
+            self.figures.remove(&name);
+        }
     }
 
     /// Reverse a capture
     pub fn reverse_capture(&mut self, name: String, pos: Position) {
+        let mut found = false;
         if let Some(mut v) = self.figures.get_mut(&name) {
             v.push(pos);
-        } else {
-            unreachable!()
+            found = true;
+        }
+
+        if !found {
+            self.figures.insert(name, vec![pos]);
         }
     }
 
@@ -198,7 +226,7 @@ impl ::std::clone::Clone for Player {
         for (name, pos) in self.figures.iter() {
             f.insert(name.clone(), pos.clone());
         }
-        Player{ figures: f, color: self.color, ptype: self.ptype }
+        Player{ figures: f, color: self.color, ptype: self.ptype, castling: self.castling }
     }
 
     fn clone_from(&mut self, source: &Self) {
