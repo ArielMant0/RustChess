@@ -6,6 +6,8 @@ We have the basic functionalities of a chess game as a console application.
 --> Opponent pieces can be captured  
 --> Players can lose when their King is in check and cannot be saved in one move  
 
+![Alternative Perspective](example.jpg "Close-up Perspective")  
+
 ## DONE:  
  - Fix Rook Bug (movement bug)  
  - Intergrate Vulkan Visualization  
